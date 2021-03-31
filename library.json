@@ -1,0 +1,40 @@
+{
+  "name": "Viralink_Arduino_SDK",
+  "version": "0.0.19",
+  "description": "A SDK and Examples for Viralink IoT Paltform",
+  "keywords": "Viralink, Arduino",
+  "authors": [
+    {
+      "name": "Viralink.io",
+      "url": "https://viralink.io",
+      "maintainer": true
+    }
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/viralinkio/Arduino-SDK.git"
+  },
+  "homepage": "https://github.com/viralinkio/Arduino-SDK.git",
+  "export": {
+    "include": [
+      "src/*",
+      "examples/*"
+    ]
+  },
+  "dependencies": {
+    "vshymanskyy/TinyGSM": "0.10.9",
+    "me-no-dev/ESPAsyncTCP": "1.2.2",
+    "me-no-dev/AsyncTCP": "1.1.1",
+    "me-no-dev/ESP Async WebServer": "1.2.3",
+    "knolleary/PubSubClient": "2.8",
+    "bblanchon/ArduinoJson": "6.17.3",
+    "sui77/rc-switch": "2.6.4"
+  },
+  "frameworks": [
+    "arduino"
+  ],
+  "platforms": [
+    "espressif32",
+    "espressif8266"
+  ]
+}
