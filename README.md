@@ -1,6 +1,6 @@
 # Arduino-SDK for viralink.io
 
-Suuports:
+Supports:
   * ESP8266
   * ESP32 
   * ABM-Mini
