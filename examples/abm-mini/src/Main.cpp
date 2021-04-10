@@ -21,30 +21,27 @@ PinController ackLed(ACK_LED_PIN, false);
 Persistence persistence(150);
 Button resetButton(RESET_KEY_PIN, INPUT_PULLUP);
 
-RFController rfController(RF_PIN); // used to receive with RF-433Mhz remote control
+RFController rfController(RF_PIN, 200); // used to receive with RF-433Mhz remote control
 
 void setup() {
-    yield();
-    disableCore0WDT();
-    disableLoopWDT();
-
     SerialMon.begin(115200);
     pinMode(RELAY1_PIN, OUTPUT);
     pinMode(RELAY2_PIN, OUTPUT);
     pinMode(RELAY3_PIN, OUTPUT);
     pinMode(BUZZER_PIN, OUTPUT);
 
+    resetButton.init();
     persistence.init();
     networkController.init();
     rfController.init();
 
-    // detect 5s long pressed on button to activate factory reset
+    // detect 3s long pressed on button to activate factory reset
     resetButton.onLongClick([]() {
         printDBGln("Factory Reset Function Called");
         persistence.set_configured(false);
-        delay(50);
+        delay(1000); // this is necessary before restart otherwise it will run again after reboot
         ESP.restart();
-    });
+    }, 3000);
 
     // Recover Trusted Key from Persistence after Reboot
     if (persistence.readEEprom(131) == "1") {
@@ -168,9 +165,9 @@ void connectToNetwork() {
     // you can use  networkController.connect2GSM() or networkController.connect2WIFi() function
     networkController.setAutoReconnect(true); //if network fails it will try to reconnect;
 //    networkController.connect2GSM(persistence.get_gsm_apn(), persistence.get_sim_pin(), 15);
-//    networkController.connect2WIFi(persistence.get_wifi_SSID(), persistence.get_wifi_PASS(), 10);
-    networkController.autoConnect(persistence.get_wifi_SSID(), persistence.get_wifi_PASS(),
-                                  persistence.get_gsm_apn(), persistence.get_sim_pin(), 15, 10);
+    networkController.connect2WIFi(persistence.get_wifi_SSID(), persistence.get_wifi_PASS(), 10);
+//    networkController.autoConnect(persistence.get_wifi_SSID(), persistence.get_wifi_PASS(),
+//                                  persistence.get_gsm_apn(), persistence.get_sim_pin(), 15, 10);
 //
 }
 

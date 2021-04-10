@@ -7,13 +7,15 @@ public:
 
     typedef void (*ActionEvent)();
 
-    void onLongClick(ActionEvent);
+    void onLongClick(ActionEvent, unsigned int= 5000);
 
     void onDoubleClick(ActionEvent);
 
     void onClick(ActionEvent);
 
     void loop();
+
+    void init();
 
 private:
     uint8_t pin;
@@ -28,8 +30,8 @@ private:
     unsigned int longThreshold = 5000;
     unsigned int doubleClickDelayThreshold = 1000;
     unsigned int doubleClickClear = 1000;
-    bool foundLong;
-    bool firstClick;
+    bool foundLong, firstClick;
+    bool triggerClickEvent, triggerLongEvent, triggerDoubleEvent;
     unsigned long firstClickTime;
 
     void clickFunCall();
@@ -38,17 +40,45 @@ private:
 
     void longFunCall();
 
+    void handleInterrupt();
+
+    void attachInt();
+
+    void detachInt();
+
+    static void handleInterruptFunc(Button *b);
+
 };
+
+void IRAM_ATTR Button::handleInterruptFunc(Button *b) {
+    if (b != nullptr)
+        b->handleInterrupt();
+}
+
+
+void Button::init() {
+    pinMode(pin, mode);
+    digitalRead(pin) == LOW ? activeLOW = false : activeLOW = HIGH;
+    attachInt();
+}
+
+void Button::attachInt() {
+    attachInterruptArg(digitalPinToInterrupt(pin), reinterpret_cast<void (*)(void *)>(handleInterruptFunc), this,
+                       activeLOW ? ONLOW : ONHIGH);
+}
+
+void Button::detachInt() {
+    detachInterrupt(digitalPinToInterrupt(pin));
+}
 
 Button::Button(uint8_t buttonPin, uint8_t mode) {
     pin = buttonPin;
     this->mode = mode;
-    pinMode(pin, mode);
-    digitalRead(pin) == LOW ? activeLOW = false : activeLOW = HIGH;
 }
 
-void Button::onLongClick(Button::ActionEvent longEvent) {
+void Button::onLongClick(Button::ActionEvent longEvent, unsigned int time_ms) {
     this->longFunc = longEvent;
+    this->longThreshold = time_ms;
 }
 
 void Button::onDoubleClick(Button::ActionEvent doubleEvent) {
@@ -60,24 +90,30 @@ void Button::onClick(Button::ActionEvent clickEvent) {
 }
 
 void Button::loop() {
-    bool state = digitalRead(pin) == (activeLOW ? LOW : HIGH);
+    if (triggerClickEvent) clickFunCall();
+    if (triggerDoubleEvent) doubleFunCall();
+    if (triggerLongEvent) longFunCall();
+}
 
+void Button::handleInterrupt() {
+    bool state = digitalRead(pin) == (activeLOW ? LOW : HIGH);
     if (state) {
         if (!foundLong && lastState && (millis() - lastEventTime) > longThreshold) {
-            longFunCall();
+            detachInt();
+            triggerLongEvent = true;
             foundLong = true;
         }
 
     } else {
         if (lastState && (millis() - lastEventTime) > 20 && (millis() - lastEventTime) < 500) {
-            clickFunCall();
+            triggerClickEvent = true;
 
             if (!firstClick) {
                 firstClickTime = millis();
                 firstClick = true;
             } else if ((millis() - firstClickTime) < doubleClickDelayThreshold) {
                 firstClick = false;
-                doubleFunCall();
+                triggerDoubleEvent = true;
             }
         } else if (firstClick && ((millis() - firstClickTime) > doubleClickClear)) firstClick = false;
         else if (foundLong) foundLong = false;
@@ -91,15 +127,19 @@ void Button::loop() {
 }
 
 void Button::clickFunCall() {
-    if (clickFunc != nullptr)clickFunc();
+    triggerClickEvent = false;
+    if (clickFunc != nullptr) clickFunc();
 }
 
 void Button::doubleFunCall() {
+    triggerDoubleEvent = false;
     if (doubleFunc != nullptr) doubleFunc();
 }
 
 void Button::longFunCall() {
+    triggerLongEvent = false;
     if (longFunc != nullptr) longFunc();
+    attachInt();
 }
 
 #endif //VIRALINK_BUTTON_TPP

@@ -11,8 +11,6 @@ class MQTTController {
 public:
     typedef void (*ConnectionEvent)();
 
-    PubSubClient *mqttClient;
-
     void updateSendAttributesInterval(float seconds);
 
     bool isViralinkConnected() const;
@@ -25,6 +23,7 @@ public:
     PubSubClient *getMqttClient() const;
 
 private:
+    PubSubClient *mqttClient;
     NetworkController *nc;
     float updateInterval = 10;
     unsigned long lastSendAttributes;

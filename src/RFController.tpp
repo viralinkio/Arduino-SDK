@@ -10,7 +10,7 @@ public:
 
     typedef void (*LearnedNewRemoteEvent)(unsigned long);
 
-    RFController(uint8_t pin) : pin(pin) {}
+    RFController(uint8_t pin, int debounce_ms) : pin(pin), debounce_ms(debounce_ms) {}
 
     void init();
 
@@ -34,6 +34,7 @@ private:
     unsigned long trustedAddress;
     bool learning;
     unsigned long lastReceiveTime;
+    int debounce_ms;
 };
 
 void RFController::init() {
@@ -47,7 +48,7 @@ void RFController::loop() {
         uint8_t rKey = value & 15;
 
         if (!learning) {
-            if (rAddress == trustedAddress && event != nullptr && (millis() - lastReceiveTime) > 500) {
+            if (rAddress == trustedAddress && event != nullptr && (millis() - lastReceiveTime) > debounce_ms) {
                 event(rKey);
                 lastReceiveTime = millis();
             }
