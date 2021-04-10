@@ -169,7 +169,7 @@ void NetworkController::loop() {
 #ifdef F_WIFI
 
         if (wifiConnecting) {
-            if ((millis() - startWiFiConnectingTime) < (wTimeout * 1000)) {
+            if (((int) (millis() - startWiFiConnectingTime)) < (wTimeout * 1000)) {
                 if (WiFi.status() == WL_CONNECTED) {
                     printDBG("Connected To WiFi with IP: ");
                     printDBGln(WiFi.localIP().toString().c_str());
@@ -230,12 +230,22 @@ void NetworkController::loop() {
 
     if (reconnectFailedThreshold == 0) {
         printDBGln("Auto Reconnect Mode activated");
-        if (autoConnectMode)
+        if (autoConnectMode) {
             autoConnect(wSSID, wPASS, gApn, gSimPin, wTimeout, gTimeout);
-        else if (wTimeout != -1)
+            return;
+        }
+#ifdef F_WIFI
+        if (wTimeout != -1) {
             connect2WIFi(wSSID, wPASS, wTimeout);
-        else if (gTimeout != -1)
+            return;
+        }
+#endif
+#ifdef F_GSM
+        if (gTimeout != -1) {
             connect2GSM(gApn, gSimPin, gTimeout);
+            return;
+        }
+#endif
     }
 }
 

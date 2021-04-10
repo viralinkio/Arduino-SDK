@@ -20,6 +20,9 @@ char viralinkServerURL[] = VIRALINK_URL;
 #endif
 
 #ifdef F_MQTT
+#if !defined(F_WIFI) && !defined(F_GSM)
+#error "Please Enable At Least One of F_WIFI or F_GSM to be able use MqttController Package Or uncoment F_MQTT"
+#endif
 
 #include "MqttController.tpp"
 

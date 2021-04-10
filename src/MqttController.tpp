@@ -18,9 +18,12 @@ public:
     void connectToViralink(NetworkController *networkController, String id, String token, String pass,
                            MQTT_CALLBACK_SIGNATURE, bool sendSystemAttributes = true,
                            ConnectionEvent connectionEvent = nullptr);
+
     void loop();
 
     PubSubClient *getMqttClient() const;
+
+    virtual ~MQTTController() { delete mqttClient; }
 
 private:
     PubSubClient *mqttClient;

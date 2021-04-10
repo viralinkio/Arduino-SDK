@@ -48,7 +48,7 @@ void RFController::loop() {
         uint8_t rKey = value & 15;
 
         if (!learning) {
-            if (rAddress == trustedAddress && event != nullptr && (millis() - lastReceiveTime) > debounce_ms) {
+            if (rAddress == trustedAddress && event != nullptr && ((int) (millis() - lastReceiveTime)) > debounce_ms) {
                 event(rKey);
                 lastReceiveTime = millis();
             }
