@@ -136,8 +136,12 @@ void on_message(const char *topic, byte *payload, unsigned int length) {
     }
 
     // you can update updateSendAttributesInterval with updateInterval method (you should send RPC message to device from platform)
-    if (methodName.equals("updateInterval"))
-        mqttController.updateSendAttributesInterval(data["params"]);
+    //used for responses with format {"updateInterval":10} - subscribe updates format
+    if (data.containsKey("updateInterval"))
+        mqttController.updateSendAttributesInterval(data["updateInterval"]);
+        //used for responses with format {"shared":{"updateInterval":10}} - request shared attributes format
+    else if (data.containsKey("shared"))
+        mqttController.updateSendAttributesInterval(data["shared"]["updateInterval"]);
 }
 
 //set GPIO status
@@ -178,7 +182,8 @@ void connectToViralink() {
                                      []() {
                                          PubSubClient *client = mqttController.getMqttClient();
                                          ackLed.setLedStatus(PinController::ON);
-                                         mqttController.getMqttClient()->subscribe("v1/devices/me/rpc/request/+");
+                                         client->subscribe("v1/devices/me/rpc/request/+");
+
                                          // send current status after connection
                                          printDBGln("Sending current GPIO status ...");
                                          client->publish("v1/devices/me/attributes",
@@ -187,5 +192,17 @@ void connectToViralink() {
                                                          get_gpio_status(RELAY2_PIN).c_str());
                                          client->publish("v1/devices/me/attributes",
                                                          get_gpio_status(RELAY3_PIN).c_str());
+
+                                         // subscribe to receive updates of shared attributes - response format: {"updateInterval":10}
+                                         client->subscribe("v1/devices/me/attributes");
+
+                                         // request shared attributes from viralink - response format: {"shared":{"updateInterval":10}}
+                                         printDBGln("Request updateInterval shared attributes...");
+                                         StaticJsonDocument<100> data;
+                                         data["sharedKeys"] = "updateInterval";
+                                         char payload[100];
+                                         serializeJson(data, payload, sizeof(payload));
+                                         printDBGln(String(payload).c_str());
+                                         client->publish("v1/devices/me/attributes/request/1", String(payload).c_str());
                                      });
 }

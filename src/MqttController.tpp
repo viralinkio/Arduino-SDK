@@ -81,6 +81,7 @@ void MQTTController::loop() {
         printDBG("Connecting to Viralink ...");
         if (mqttClient->connect(id.c_str(), token.c_str(), pass.c_str())) {
             printDBGln("[Connected]");
+            mqttClient->subscribe("v1/devices/me/attributes");
             if (sendAttributes)
                 mqttClient->publish("v1/devices/me/attributes", get_Connection_info().c_str());
             if (event != nullptr) event();
@@ -113,6 +114,7 @@ String MQTTController::get_Connection_info() {
     data[String("Cpu FreqMHZ")] = ESP.getCpuFreqMHz();
     data[String("Cpu SDK Version")] = ESP.getSdkVersion();
     data[String("Flash Chip Speed")] = ESP.getFlashChipSpeed();
+    data[String("Viralink SDK Version")] = SDK_VERSION;
 #ifdef ESP32
     data[String("Chip Type")] = "ESP32";
 #endif

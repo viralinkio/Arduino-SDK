@@ -1,6 +1,8 @@
 #ifndef VIRALINK_H
 #define VIRALINK_H
 
+#define SDK_VERSION "0.0.22"
+
 #ifndef VIRALINK_DEFINES_H
 #error PLEASE DEFINE VIRALINK_DEFINES_H
 #endif
