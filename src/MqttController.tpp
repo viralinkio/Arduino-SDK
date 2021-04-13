@@ -81,7 +81,6 @@ void MQTTController::loop() {
         printDBG("Connecting to Viralink ...");
         if (mqttClient->connect(id.c_str(), token.c_str(), pass.c_str())) {
             printDBGln("[Connected]");
-            mqttClient->subscribe("v1/devices/me/attributes");
             if (sendAttributes)
                 mqttClient->publish("v1/devices/me/attributes", get_Connection_info().c_str());
             if (event != nullptr) event();

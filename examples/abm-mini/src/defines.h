@@ -26,7 +26,6 @@
 #define IN2_PIN 39
 #define IN3_PIN 36
 #define RF_PIN 5
-#define DHTPIN 27
-#define DHTTYPE DHT21   // DHT 21 (AM2301)
+#define SENSOR_PIN 27
 
 #endif //DEFINES_H

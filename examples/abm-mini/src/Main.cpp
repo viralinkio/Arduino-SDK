@@ -1,6 +1,14 @@
 #include <Arduino.h>
 #include "defines.h"
 #include <viralink.h>
+#include <DHT_U.h>
+
+//DHT
+DHT_Unified dht(SENSOR_PIN, DHT11);
+sensor_t sensor;
+unsigned long lastSentDHTTime; //used to send Temperature and Humidity To Server Periodically
+
+void sendDHTParametersToViralink();
 
 void on_message(const char *topic, byte *payload, unsigned int length);
 
@@ -34,6 +42,10 @@ void setup() {
     persistence.init();
     networkController.init();
     rfController.init();
+
+    // Init DHT Sensor
+    dht.begin();
+    dht.temperature().getSensor(&sensor);
 
     // detect 3s long pressed on button to activate factory reset
     resetButton.onLongClick([]() {
@@ -102,6 +114,12 @@ void loop() {
     resetButton.loop();
     networkController.loop();
     mqttController.loop();
+
+    //send DHT parameters to viralink each 10s
+    if (((int) millis() - lastSentDHTTime) > 10000) {
+        lastSentDHTTime = millis();
+        sendDHTParametersToViralink();
+    }
 }
 
 void on_message(const char *topic, byte *payload, unsigned int length) {
@@ -205,4 +223,26 @@ void connectToViralink() {
                                          printDBGln(String(payload).c_str());
                                          client->publish("v1/devices/me/attributes/request/1", String(payload).c_str());
                                      });
+}
+
+void sendDHTParametersToViralink() {
+    sensors_event_t eventH;
+    sensors_event_t eventT;
+
+    dht.temperature().getEvent(&eventT);
+    dht.humidity().getEvent(&eventH);
+    //if DHT is not working well return
+    if (isnan(eventT.temperature) || isnan(eventH.relative_humidity))
+        return;
+
+    // If MQTT not connected to Platfrom Return
+    if (!mqttController.isViralinkConnected())
+        return;
+
+    StaticJsonDocument<100> data;
+    data["Temperature"] = eventT.temperature;
+    data["Humidity"] = eventH.relative_humidity;
+    char payload[100];
+    serializeJson(data, payload, sizeof(payload));
+    mqttController.getMqttClient()->publish("v1/devices/me/telemetry", String(payload).c_str());
 }
