@@ -27,7 +27,7 @@ PinController ackLed(ACK_LED_PIN, false);
 // from 0-130 is reserved for default function if you need space for your own data use after 130th byte
 // if you need more than 40 character for token , set more than default size (default size = 130)
 Persistence persistence(150);
-Button resetButton(RESET_KEY_PIN, INPUT_PULLUP);
+Button resetButton(RESET_KEY_PIN, INPUT_PULLDOWN);
 
 RFController rfController(RF_PIN, 200); // used to receive with RF-433Mhz remote control
 

@@ -3,7 +3,7 @@
 
 class Button {
 public:
-    Button(uint8_t buttonPin, uint8_t mode);
+    Button(uint8_t buttonPin, uint8_t mode, bool = false);
 
     typedef void (*ActionEvent)();
 
@@ -15,7 +15,7 @@ public:
 
     void loop();
 
-    void init();
+    void init(bool autoDetectDefaultMode = true);
 
 private:
     uint8_t pin;
@@ -56,9 +56,10 @@ void IRAM_ATTR Button::handleInterruptFunc(Button *b) {
 }
 
 
-void Button::init() {
+void Button::init(bool autoDetectDefaultMode) {
     pinMode(pin, mode);
-    digitalRead(pin) == LOW ? activeLOW = false : activeLOW = HIGH;
+    if (autoDetectDefaultMode)
+        digitalRead(pin) == LOW ? activeLOW = false : activeLOW = HIGH;
     attachInt();
 }
 
@@ -71,9 +72,10 @@ void Button::detachInt() {
     detachInterrupt(digitalPinToInterrupt(pin));
 }
 
-Button::Button(uint8_t buttonPin, uint8_t mode) {
+Button::Button(uint8_t buttonPin, uint8_t mode, bool activeLow) {
     pin = buttonPin;
     this->mode = mode;
+    this->activeLOW = activeLow;
 }
 
 void Button::onLongClick(Button::ActionEvent longEvent, unsigned int time_ms) {

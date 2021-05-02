@@ -1,6 +1,6 @@
 {
   "name": "Viralink_Arduino_SDK",
-  "version": "0.0.29",
+  "version": "0.0.31",
   "description": "A SDK and Examples for Viralink IoT Paltform",
   "keywords": "Viralink, Arduino",
   "authors": [
@@ -27,8 +27,7 @@
     "me-no-dev/AsyncTCP": "1.1.1",
     "me-no-dev/ESP Async WebServer": "1.2.3",
     "knolleary/PubSubClient": "2.8",
-    "bblanchon/ArduinoJson": "6.17.3",
-    "sui77/rc-switch": "2.6.4"
+    "bblanchon/ArduinoJson": "6.17.3"
   },
   "frameworks": [
     "arduino"

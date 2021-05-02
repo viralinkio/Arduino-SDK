@@ -10,8 +10,9 @@
 #define SerialAT Serial2          //if you enable GSM feature the SerialAT should be defined
 
 #define F_WIFI      // wifi feature
-#define AP_WIFI_SSID "RGBW35" //wifi ssid for ap mode in config web server
+#define AP_WIFI_SSID "Viralink" //wifi ssid for ap mode in config web server
 #define AP_WIFI_PASS "Vira-Afzar" //wifi pass for ap mode in config web server
+#define AP_WIFI_ADDRESS IPAddress(192, 168, 4, 1), IPAddress(192, 168, 4, 1), IPAddress(255, 255, 255, 0)
 
 #define F_MQTT //add lib to connect to Platform via MQTT (you can use mqttClient anyWhere after import)
 #define F_RF //add lib to Control RF 433Mhz

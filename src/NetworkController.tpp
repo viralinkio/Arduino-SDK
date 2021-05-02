@@ -278,7 +278,10 @@ void NetworkController::openConfigWebServer(ArRequestHandlerFunction onRequest) 
 }
 
 void NetworkController::wifiAPMode(const String &SSID, const String &PASS) {
-    WiFi.softAPConfig(IPAddress(192, 168, 4, 1), IPAddress(192, 168, 4, 1), IPAddress(255, 255, 255, 0));
+#ifndef AP_WIFI_ADDRESS
+#define AP_WIFI_ADDRESS IPAddress(192, 168, 4, 1), IPAddress(192, 168, 4, 1), IPAddress(255, 255, 255, 0)
+#endif
+    WiFi.softAPConfig(AP_WIFI_ADDRESS);
     WiFi.mode(WIFI_AP);
     WiFi.softAP(SSID.c_str(), PASS.c_str());
     networkMode = WIFI;
@@ -336,9 +339,9 @@ void NetworkController::connect2GSM(String apn, String pin, int gsmTimeout_secon
 
 #endif
 
-void NetworkController::onConnecting(ConnectionEvent connectingFunction, float period) {
+void NetworkController::onConnecting(ConnectionEvent connectingFunction, float period_seconds) {
     this->connectingEvent = connectingFunction;
-    this->connectingEventPeriod = period;
+    this->connectingEventPeriod = period_seconds;
 }
 
 void NetworkController::onConnected(ConnectionEvent connectedFunction) {
