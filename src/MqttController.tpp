@@ -29,8 +29,8 @@ private:
     PubSubClient *mqttClient;
     NetworkController *nc;
     float updateInterval = 10;
-    unsigned long lastSendAttributes;
-    unsigned long viralinkRecheckTimeout;
+    uint64_t lastSendAttributes;
+    uint64_t viralinkRecheckTimeout;
     bool sendAttributes;
     String id, pass, token;
     ConnectionEvent event;
@@ -65,16 +65,17 @@ void MQTTController::connectToViralink(NetworkController *networkController, Str
 }
 
 void MQTTController::loop() {
+    uint64_t millis = Uptime::getMilliseconds();
 
     if (mqttClient != nullptr) mqttClient->loop();
 
-    if (sendAttributes && ((millis() - lastSendAttributes) > (updateInterval * 1000))) {
-        lastSendAttributes = millis();
+    if (sendAttributes && ((millis - lastSendAttributes) > ((uint64_t) (updateInterval * 1000)))) {
+        lastSendAttributes = millis;
         sendAttributesFunc();
     }
 
-    if ((millis() - viralinkRecheckTimeout) <= 2000) return;
-    viralinkRecheckTimeout = millis();
+    if ((millis - viralinkRecheckTimeout) <= 2000) return;
+    viralinkRecheckTimeout = millis;
 
     if (!isViralinkConnected() && nc != nullptr && nc->isConnected()) {
 
@@ -148,7 +149,7 @@ void MQTTController::sendAttributesFunc() {
         return;
 
     StaticJsonDocument<1024> data;
-    data[String("upTime")] = millis() / 1000;
+    data[String("upTime")] = Uptime::getSeconds();
     data[String("ESP Free Heap")] = ESP.getFreeHeap();
 
 #ifdef ESP32

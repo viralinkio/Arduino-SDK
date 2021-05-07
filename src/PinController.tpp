@@ -1,5 +1,5 @@
-#ifndef VIRALINK_PINCONTROLLER_TPP
-#define VIRALINK_PINCONTROLLER_TPP
+#ifndef VIRALINK_PIN_CONTROLLER_TPP
+#define VIRALINK_PIN_CONTROLLER_TPP
 
 #include <Arduino.h>
 
@@ -12,16 +12,15 @@ public:
         TOGGLE
     };
 
-    PinController(uint8_t, bool= false);
+    PinController(uint8_t ledPin, bool activeLow = false);
 
-    void setLedStatus(LED_STATE);
+    void setLedStatus(LED_STATE state);
 
 private:
     uint8_t ledPin;
     bool activeLOW;
     bool lastMode;
 };
-
 
 void PinController::setLedStatus(LED_STATE state) {
 
@@ -54,4 +53,4 @@ PinController::PinController(uint8_t ledPin, bool activeLow) {
     lastMode = false;
 }
 
-#endif //VIRALINK_PINCONTROLLER_TPP
+#endif //VIRALINK_PIN_CONTROLLER_TPP

@@ -33,7 +33,7 @@ private:
     uint8_t pin;
     unsigned long trustedAddress;
     bool learning;
-    unsigned long lastReceiveTime;
+    uint64_t lastReceiveTime;
     int debounce_ms;
 };
 
@@ -48,9 +48,10 @@ void RFController::loop() {
         uint8_t rKey = value & 15;
 
         if (!learning) {
-            if (rAddress == trustedAddress && event != nullptr && ((int) (millis() - lastReceiveTime)) > debounce_ms) {
+            if (rAddress == trustedAddress && event != nullptr &&
+                (Uptime::getMilliseconds() - lastReceiveTime) > debounce_ms) {
                 event(rKey);
-                lastReceiveTime = millis();
+                lastReceiveTime = Uptime::getMilliseconds();
             }
 
         } else {

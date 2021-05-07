@@ -98,7 +98,7 @@ public:
 
 private:
     NETWORK_MODE networkMode;
-    unsigned long lastConnectingTime;
+    uint64_t lastConnectingTime;
     ConnectionEvent connectingEvent;
     ConnectionEvent connectedEvent;
     float connectingEventPeriod;
@@ -106,13 +106,13 @@ private:
     bool wifiConnecting, gsmConnecting, autoReconnect;
     bool autoConnectMode;
     short reconnectFailedThreshold = 3;
-    unsigned long loopTimeout, autoReconnectTimeout;
+    uint64_t loopTimeout, autoReconnectTimeout;
 
-    unsigned long startWiFiConnectingTime;
+    uint64_t startWiFiConnectingTime;
     int wTimeout = -1;
     String wSSID, wPASS;
 
-    unsigned long startGsmConnectingTime;
+    uint64_t startGsmConnectingTime;
     String gApn;
     String gSimPin;
     int gTimeout = -1;
@@ -155,27 +155,28 @@ void NetworkController::init() {
 }
 
 void NetworkController::loop() {
+    uint64_t millis = Uptime::getMilliseconds();
 
     if (connectingEvent != nullptr && (gsmConnecting || wifiConnecting) &&
-        ((millis() - lastConnectingTime) > (connectingEventPeriod * 1000))) {
+        ((millis - lastConnectingTime) > ((uint64_t) (connectingEventPeriod * 1000)))) {
         connectingEvent();
-        lastConnectingTime = millis();
+        lastConnectingTime = millis;
     }
 
-    if ((millis() - loopTimeout) <= 500) return;
-    loopTimeout = millis();
+    if ((millis - loopTimeout) <= 500) return;
+    loopTimeout = millis;
 
     if (wifiConnecting || gsmConnecting) {
 #ifdef F_WIFI
 
         if (wifiConnecting) {
-            if (((int) (millis() - startWiFiConnectingTime)) < (wTimeout * 1000)) {
+            if ((millis - startWiFiConnectingTime) < (wTimeout * 1000)) {
                 if (WiFi.status() == WL_CONNECTED) {
                     printDBG("Connected To WiFi with IP: ");
                     printDBGln(WiFi.localIP().toString().c_str());
                     networkMode = WIFI;
                     wifiConnecting = false;
-                    autoReconnectTimeout = millis();
+                    autoReconnectTimeout = millis;
                     reconnectFailedThreshold = 3;
                     if (connectedEvent != nullptr) connectedEvent();
                 }
@@ -204,7 +205,7 @@ void NetworkController::loop() {
                 printDBGln("GPRS connected");
 
                 networkMode = GSM;
-                autoReconnectTimeout = millis();
+                autoReconnectTimeout = millis;
                 reconnectFailedThreshold = 3;
                 if (connectedEvent != nullptr) connectedEvent();
                 gsmConnecting = false;
@@ -223,8 +224,8 @@ void NetworkController::loop() {
     if (!autoReconnect)
         return;
 
-    if ((millis() - autoReconnectTimeout) < 5000) return;
-    autoReconnectTimeout = millis();
+    if ((millis - autoReconnectTimeout) < 5000) return;
+    autoReconnectTimeout = millis;
 
     if (reconnectFailedThreshold > 0) reconnectFailedThreshold = isConnected() ? 3 : reconnectFailedThreshold - 1;
 
@@ -295,7 +296,7 @@ void NetworkController::connect2WIFi(String SSID, String PASS, int wifiTimeout_s
     wPASS = PASS;
     wTimeout = wifiTimeout_seconds;
     wifiConnecting = true;
-    startWiFiConnectingTime = millis();
+    startWiFiConnectingTime = Uptime::getMilliseconds();
     networkMode = NOT_CONNECTED;
 
     printDBGln("Connecting to WIFi");
@@ -315,7 +316,7 @@ void NetworkController::connect2GSM(String apn, String pin, int gsmTimeout_secon
     gSimPin = pin;
     gTimeout = gsmTimeout_seconds;
     gsmConnecting = true;
-    startGsmConnectingTime = millis();
+    startGsmConnectingTime = Uptime::getMilliseconds();
     networkMode = NOT_CONNECTED;
 
     if (!modem->isNetworkConnected()) {

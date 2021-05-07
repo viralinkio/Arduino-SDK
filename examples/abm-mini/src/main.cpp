@@ -6,7 +6,7 @@
 //DHT
 DHT_Unified dht(SENSOR_PIN, DHT11);
 sensor_t sensor;
-unsigned long lastSentDHTTime; //used to send Temperature and Humidity To Server Periodically
+uint64_t lastSentDHTTime; //used to send Temperature and Humidity To Server Periodically
 
 void sendDHTParametersToViralink();
 
@@ -116,8 +116,8 @@ void loop() {
     mqttController.loop();
 
     //send DHT parameters to viralink each 10s
-    if (((int) millis() - lastSentDHTTime) > 10000) {
-        lastSentDHTTime = millis();
+    if ((Uptime::getMilliseconds() - lastSentDHTTime) > 10000) {
+        lastSentDHTTime = Uptime::getMilliseconds();
         sendDHTParametersToViralink();
     }
 }

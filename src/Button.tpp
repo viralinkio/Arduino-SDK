@@ -25,14 +25,14 @@ private:
     ActionEvent doubleFunc;
     ActionEvent clickFunc;
 
-    unsigned long lastEventTime = 0;
+    uint64_t lastEventTime = 0;
     bool lastState = false;
     unsigned int longThreshold = 5000;
     unsigned int doubleClickDelayThreshold = 1000;
     unsigned int doubleClickClear = 1000;
     bool foundLong, firstClick;
     bool triggerClickEvent, triggerLongEvent, triggerDoubleEvent;
-    unsigned long firstClickTime;
+    uint64_t firstClickTime;
 
     void clickFunCall();
 
@@ -98,33 +98,34 @@ void Button::loop() {
 }
 
 void Button::handleInterrupt() {
+    uint64_t millis = Uptime::getMilliseconds();
     bool state = digitalRead(pin) == (activeLOW ? LOW : HIGH);
     if (state) {
-        if (!foundLong && lastState && (millis() - lastEventTime) > longThreshold) {
+        if (!foundLong && lastState && (millis - lastEventTime) > longThreshold) {
             detachInt();
             triggerLongEvent = true;
             foundLong = true;
         }
 
     } else {
-        if (lastState && (millis() - lastEventTime) > 20 && (millis() - lastEventTime) < 500) {
+        if (lastState && (millis - lastEventTime) > 20 && (millis - lastEventTime) < 500) {
             triggerClickEvent = true;
 
             if (!firstClick) {
-                firstClickTime = millis();
+                firstClickTime = millis;
                 firstClick = true;
-            } else if ((millis() - firstClickTime) < doubleClickDelayThreshold) {
+            } else if ((millis - firstClickTime) < doubleClickDelayThreshold) {
                 firstClick = false;
                 triggerDoubleEvent = true;
             }
-        } else if (firstClick && ((millis() - firstClickTime) > doubleClickClear)) firstClick = false;
+        } else if (firstClick && ((millis - firstClickTime) > doubleClickClear)) firstClick = false;
         else if (foundLong) foundLong = false;
     }
 
 
     if (state != lastState) {
         lastState = state;
-        lastEventTime = millis();
+        lastEventTime = millis;
     }
 }
 

@@ -1,7 +1,7 @@
 #ifndef VIRALINK_H
 #define VIRALINK_H
 
-#define SDK_VERSION "0.0.31"
+#define SDK_VERSION "0.0.32"
 
 #ifndef VIRALINK_DEFINES_H
 #error PLEASE DEFINE VIRALINK_DEFINES_H
@@ -10,10 +10,13 @@
 #define  VIRALINK_URL "console.viralink.io"
 char viralinkServerURL[] = VIRALINK_URL;
 
+#include "Uptime.h"
 #include "PrintDBG.tpp"
 #include "Persistence.tpp"
 #include "PinController.tpp"
 #include "Button.tpp"
+#include "InputController.tpp"
+#include "PulseMaker.tpp"
 
 #if defined(F_WIFI) || defined(F_GSM)
 
