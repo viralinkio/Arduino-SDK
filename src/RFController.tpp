@@ -49,9 +49,9 @@ void RFController::loop() {
 
         if (!learning) {
             if (rAddress == trustedAddress && event != nullptr &&
-                (Uptime::getMilliseconds() - lastReceiveTime) > debounce_ms) {
+                (Uptime.getMilliseconds() - lastReceiveTime) > debounce_ms) {
                 event(rKey);
-                lastReceiveTime = Uptime::getMilliseconds();
+                lastReceiveTime = Uptime.getMilliseconds();
             }
 
         } else {

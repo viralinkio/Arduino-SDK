@@ -98,7 +98,7 @@ void Button::loop() {
 }
 
 void Button::handleInterrupt() {
-    uint64_t millis = Uptime::getMilliseconds();
+    uint64_t millis = Uptime.getMilliseconds();
     bool state = digitalRead(pin) == (activeLOW ? LOW : HIGH);
     if (state) {
         if (!foundLong && lastState && (millis - lastEventTime) > longThreshold) {

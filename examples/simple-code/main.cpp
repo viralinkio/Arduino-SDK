@@ -26,6 +26,7 @@ void connectToViralink();
 
 NetworkController networkController;
 MQTTController mqttController;
+bool relayStatus;
 
 void setup() {
     SerialMon.begin(115200);
@@ -33,9 +34,10 @@ void setup() {
 
     networkController.init();
 
-    networkController.onConnecting([](){
-        digitalWrite(RELAY1_PIN,!digitalRead(RELAY1_PIN));
-    },2);
+    networkController.onConnecting([]() {
+        relayStatus = !relayStatus;
+        digitalWrite(RELAY1_PIN, relayStatus);
+    }, 2);
 
     networkController.onConnected([]() {
         printDBG("Connected To: ");

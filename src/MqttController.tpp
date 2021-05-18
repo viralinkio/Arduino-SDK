@@ -17,7 +17,7 @@ public:
 
     void connectToViralink(NetworkController *networkController, String id, String token, String pass,
                            MQTT_CALLBACK_SIGNATURE, bool sendSystemAttributes = true,
-                           ConnectionEvent connectionEvent = nullptr);
+                           ConnectionEvent connectionEvent = nullptr, uint16_t queueSize = 1024);
 
     void loop();
 
@@ -25,7 +25,13 @@ public:
 
     virtual ~MQTTController() { delete mqttClient; }
 
+    bool addToPublishQueue(const char *topic, const char *payload);
+
+    Queue<String> *getQueue() const;
+
 private:
+    Queue<String> *queue;
+
     PubSubClient *mqttClient;
     NetworkController *nc;
     float updateInterval = 10;
@@ -49,7 +55,7 @@ bool MQTTController::isViralinkConnected() const {
 void MQTTController::connectToViralink(NetworkController *networkController, String Id, String viralinkToken,
                                        String viralinkPass,
                                        MQTT_CALLBACK_SIGNATURE, bool sendSystemAttributes,
-                                       ConnectionEvent connectionEvent) {
+                                       ConnectionEvent connectionEvent, uint16_t queueSize) {
 
     nc = networkController;
     this->sendAttributes = sendSystemAttributes;
@@ -58,16 +64,22 @@ void MQTTController::connectToViralink(NetworkController *networkController, Str
     pass = std::move(viralinkPass);
     event = connectionEvent;
 
+    delete queue;
+    queue = new Queue<String>(queueSize * 2);
+
     delete mqttClient;
     mqttClient = new PubSubClient(*networkController->getClient());
     mqttClient->setServer(viralinkServerURL, 1883);
     mqttClient->setCallback(std::move(callback));
+
 }
 
 void MQTTController::loop() {
-    uint64_t millis = Uptime::getMilliseconds();
+    uint64_t millis = Uptime.getMilliseconds();
 
     if (mqttClient != nullptr) mqttClient->loop();
+    if (queue != nullptr && !queue->isEmpty() && isViralinkConnected())
+        mqttClient->publish(queue->pop().c_str(), queue->pop().c_str());
 
     if (sendAttributes && ((millis - lastSendAttributes) > ((uint64_t) (updateInterval * 1000)))) {
         lastSendAttributes = millis;
@@ -149,7 +161,7 @@ void MQTTController::sendAttributesFunc() {
         return;
 
     StaticJsonDocument<1024> data;
-    data[String("upTime")] = Uptime::getSeconds();
+    data[String("upTime")] = Uptime.getSeconds();
     data[String("ESP Free Heap")] = ESP.getFreeHeap();
 
 #ifdef ESP32
@@ -178,6 +190,15 @@ void MQTTController::updateSendAttributesInterval(float seconds) {
 
 PubSubClient *MQTTController::getMqttClient() const {
     return mqttClient;
+}
+
+bool MQTTController::addToPublishQueue(const char *topic, const char *payload) {
+    if (queue != nullptr && queue->push(topic) && queue->push(payload)) return true;
+    return false;
+}
+
+Queue<String> *MQTTController::getQueue() const {
+    return queue;
 }
 
 #endif

@@ -3,151 +3,200 @@
 
 /*
 
-EEPROM addresses
-    |init:0-1           1   // it shows it should be on AP mode and config
-
-    |-wifi info
-    |ssid:2-32          30
-    |pass:33-63         30
-
-    |-GSM Info
-    |apn:64-74          10
-    |pin:75-85          10
-
-
-    |token:86-129        43
-
+ this library store key-value data in following format
+ <prefix><key-value count><keySize[0]><keyPayload[0]><valueSize[0]><valuePayload[0]><keySize[1]><keyPayload[1]><valueSize[1]><valuePayload[1]>
  */
-
+#include "map"
 #include <EEPROM.h>
 #include <WString.h>
 
-class Persistence {
+class PersistenceClass {
 
 public:
 
-    Persistence(int = 130);
+    void init(int = 512);
 
-    void init();
+    String *getValue(const String &key);
 
-    void set_configured(bool);
+    bool removeKey(const String &key);
 
-    void set_wifi_SSID(String);
+    bool put(const String &key, String value);
 
-    void set_wifi_PASS(String);
+    uint8_t keysCount();
 
-    void set_sim_pin(String);
+    bool clear();
 
-    void set_gsm_apn(String);
+    bool checkExistence(const String &key);
 
-    void set_platform_token(String);
-
-    String get_wifi_SSID();
-
-    String get_wifi_PASS();
-
-    String get_sim_pin();
-
-    String get_gsm_apn();
-
-    String get_platform_token();
-
-    bool is_configured();
-
-    void writeEEprom(int, String);
-
-    String readEEprom(int);
+    uint16_t availableSpace();
 
 private:
-    int size;
+    uint16_t size = 0, freeSpace = 0;
 
-    bool initOk;
+    std::map<String, String> keyValues;
+
+    bool saveInEEPROM();
+
+    bool loadFromEEPROM();
+
+    bool writeEEPROM(uint16_t address, String data);
+
+    bool writeEEPROM(uint16_t address, const byte data[], uint16_t len);
+
+    String readEEPROM(uint16_t startAddress, uint16_t len);
+
+    bool readEEPROM(uint16_t startAddress, uint16_t len, byte *buffer);
+
+    void addStringToByteArray(const String &text, byte *buffer, uint16_t startIndex = 0);
+
+    String prefix = "VIRA";
 };
 
-void Persistence::init() {
-    if (size < 130) return;
-    initOk = true;
+bool PersistenceClass::checkExistence(const String &key) {
+    auto it = keyValues.begin();
+    for (int i = 0; i < keyValues.size(); i++) {
+        if (it->first.equals(key)) return true;
+        it++;
+    }
+    return false;
+}
+
+uint16_t PersistenceClass::availableSpace() {
+    return freeSpace;
+}
+
+bool PersistenceClass::clear() {
+    keyValues.clear();
+    return saveInEEPROM();
+}
+
+uint8_t PersistenceClass::keysCount() {
+    return keyValues.size();
+}
+
+String *PersistenceClass::getValue(const String &key) {
+    if (!checkExistence(key)) return nullptr;
+    return &keyValues[key];
+}
+
+bool PersistenceClass::removeKey(const String &key) {
+    if (!checkExistence(key)) return false;
+    keyValues.erase(key);
+    return saveInEEPROM();
+}
+
+bool PersistenceClass::put(const String &key, String value) {
+    if (key.isEmpty()) return false;
+    keyValues[key] = std::move(value);
+    return saveInEEPROM();
+}
+
+void PersistenceClass::init(int maxSize) {
+    this->size = maxSize;
+    freeSpace = size;
+    if (this->size > 512) size = 512;
     EEPROM.begin(size);
+    keyValues.clear();
+    loadFromEEPROM();
 }
 
-void Persistence::writeEEprom(int address, String data) {
-    if (!initOk) {
-        printDBGln("Please Enter Persistence Size More than 102 Byte");
-        return;
+bool PersistenceClass::saveInEEPROM() {
+    byte buffer[512];
+    uint16_t p = 0;
+    addStringToByteArray(prefix, buffer);
+
+    p += prefix.length();
+    buffer[p] = keyValues.size();
+    p++;
+
+    auto it = keyValues.begin();
+    for (int i = 0; i < keyValues.size(); i++) {
+        String key = it->first;
+        String value = it->second;
+
+        buffer[p] = key.length();
+        p++;
+        addStringToByteArray(key, buffer, p);
+        p += key.length();
+
+        buffer[p] = value.length();
+        p++;
+        addStringToByteArray(value, buffer, p);
+        p += value.length();
+
+        it++;
     }
 
-    int len = data.length();
-    int dFlag = 0;
-    EEPROM.write(address, static_cast<const uint8_t>(len));
-    for (int i = address + 1; i < address + len + 1; i++) {
-        EEPROM.write(i, static_cast<const uint8_t>(data[dFlag]));
-        dFlag++;
+    if (writeEEPROM(0, buffer, p)) {
+        freeSpace = size - p - 1;
+        return true;
     }
-    EEPROM.commit();
+    return false;
 }
 
-String Persistence::readEEprom(int address) {
-    if (!initOk) {
-        printDBGln("Please Enter Persistence Size More than 102 Byte");
-        return "";
-    }
+bool PersistenceClass::loadFromEEPROM() {
+    if (!readEEPROM(0, prefix.length()).equals(prefix)) return false;
 
-    int len = int(EEPROM.read(address));
+    uint16_t p = 0;
+    p += prefix.length();
+    byte keysSize = EEPROM.readByte(p);
+    p++;
+
+    for (int i = 0; i < keysSize; i++) {
+        byte keySize = EEPROM.readByte(p);
+        p++;
+        String key = readEEPROM(p, keySize);
+        p += keySize;
+
+        byte valueSize = EEPROM.readByte(p);
+        p++;
+        String value = readEEPROM(p, valueSize);
+        p += valueSize;
+
+        keyValues[key] = value;
+    }
+    freeSpace = size - p - 1;
+    return true;
+}
+
+void PersistenceClass::addStringToByteArray(const String &text, byte *buffer, uint16_t startIndex) {
+    uint32_t len = text.length();
+    byte temp[len];
+    text.getBytes(temp, len + 1);
+    for (int i = 0; i < len; i++)
+        buffer[startIndex + i] = temp[i];
+}
+
+bool PersistenceClass::writeEEPROM(uint16_t address, String data) {
+    if (data.isEmpty()) return false;
+    uint32_t len = data.length();
+    if (address + len > size) return false;
+
+    for (int i = 0; i < len; i++)
+        EEPROM.write(address + i, data[i]);
+    return EEPROM.commit();
+}
+
+bool PersistenceClass::writeEEPROM(uint16_t address, const byte *data, uint16_t len) {
+    if (data == nullptr) return false;
+    if (address + len > size) return false;
+    for (int i = 0; i < len; i++)
+        EEPROM.write(address + i, data[i]);
+    return EEPROM.commit();
+}
+
+String PersistenceClass::readEEPROM(uint16_t startAddress, uint16_t len) {
     String data;
-    for (int i = address + 1; i < address + len + 1; i++) {
-        data += char(EEPROM.read(i));
-    }
+    for (int i = startAddress; i < startAddress + len; i++)
+        data += (char) EEPROM.readChar(i);
     return data;
 }
 
-void Persistence::set_configured(bool value) {
-    writeEEprom(0, value ? "1" : "0");
+bool PersistenceClass::readEEPROM(uint16_t startAddress, uint16_t len, byte *buffer) {
+    for (int i = 0; i < len; i++)
+        buffer[i] = EEPROM.readByte(startAddress + i);
+    return true;
 }
 
-void Persistence::set_wifi_SSID(String value) {
-    writeEEprom(2, value);
-}
-
-void Persistence::set_wifi_PASS(String value) {
-    writeEEprom(33, value);
-}
-
-void Persistence::set_gsm_apn(String value) {
-    writeEEprom(64, value);
-}
-
-void Persistence::set_sim_pin(String value) {
-    writeEEprom(75, value);
-}
-
-void Persistence::set_platform_token(String value) {
-    writeEEprom(86, value);
-}
-
-String Persistence::get_wifi_SSID() {
-    return readEEprom(2);
-}
-
-String Persistence::get_wifi_PASS() {
-    return readEEprom(33);
-}
-
-String Persistence::get_sim_pin() {
-    return readEEprom(75);
-}
-
-String Persistence::get_gsm_apn() {
-    return readEEprom(64);
-}
-
-String Persistence::get_platform_token() {
-    return readEEprom(86);
-}
-
-bool Persistence::is_configured() {
-    return (readEEprom(0).toInt() == 1);
-}
-
-Persistence::Persistence(int size) : size(size) {}
-
+PersistenceClass Persistence;
 #endif //VIRALINK_EEPROM_H

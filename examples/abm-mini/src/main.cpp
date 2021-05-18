@@ -26,10 +26,32 @@ PinController ackLed(ACK_LED_PIN, false);
 
 // from 0-130 is reserved for default function if you need space for your own data use after 130th byte
 // if you need more than 40 character for token , set more than default size (default size = 130)
-Persistence persistence(150);
 Button resetButton(RESET_KEY_PIN, INPUT_PULLDOWN);
 
 RFController rfController(RF_PIN, 200); // used to receive with RF-433Mhz remote control
+
+void mqttLoop(void *parameter) {
+    while (true) {
+        mqttController.loop();
+
+        if ((Uptime.getMilliseconds() - lastSentDHTTime) > 10000) {
+            lastSentDHTTime = Uptime.getMilliseconds();
+//            todo remove
+            if (mqttController.getQueue() != nullptr) {
+                Serial.print("Queue counts: ");
+                Serial.println(String(mqttController.getQueue()->getCounts()));
+            }
+            Serial.print("Heap Free: ");
+            Serial.println(String(ESP.getFreeHeap()));
+            Serial.print("Persistence Free: ");
+            Serial.println(String(Persistence.availableSpace()));
+            Serial.print("Min Heap Free: ");
+            Serial.println(String(ESP.getMinFreeHeap()));
+            sendDHTParametersToViralink();
+        }
+        delay(1);
+    }
+}
 
 void setup() {
     SerialMon.begin(115200);
@@ -39,7 +61,7 @@ void setup() {
     pinMode(BUZZER_PIN, OUTPUT);
 
     resetButton.init();
-    persistence.init();
+    Persistence.init();
     networkController.init();
     rfController.init();
 
@@ -50,21 +72,20 @@ void setup() {
     // detect 3s long pressed on button to activate factory reset
     resetButton.onLongClick([]() {
         printDBGln("Factory Reset Function Called");
-        persistence.set_configured(false);
+        Persistence.removeKey("configured");
         delay(1000); // this is necessary before restart otherwise it will run again after reboot
         ESP.restart();
     }, 3000);
 
     // Recover Trusted Key from Persistence after Reboot
-    if (persistence.readEEprom(131) == "1") {
-        rfController.setTrustAddress(strtol(persistence.readEEprom(133).c_str(), nullptr, 16));
+    if (Persistence.checkExistence("RF_Address")) {
+        rfController.setTrustAddress(strtol(Persistence.getValue("RF_Address")->c_str(), nullptr, 16));
     }
 
     // double click reset key to start Learning Remote Trusted Address
     resetButton.onDoubleClick([]() {
         rfController.startLearning([](unsigned long address) {
-            persistence.writeEEprom(131, "1");
-            persistence.writeEEprom(133, String(address, HEX));
+            Persistence.put("RF_Address", String(address, HEX));
         });
     });
 
@@ -75,17 +96,17 @@ void setup() {
         else if (key == 4) set_gpio_status(RELAY3_PIN, !digitalRead(RELAY3_PIN));
     });
 
-    if (!persistence.is_configured()) {
+    if (!Persistence.checkExistence("configured")) {
         ackLed.setLedStatus(PinController::OFF);
         networkController.wifiAPMode(String(AP_WIFI_SSID).c_str(), String(AP_WIFI_PASS).c_str());
 
         networkController.openConfigWebServer([](AsyncWebServerRequest *request) {
-            persistence.set_configured(true);
-            persistence.set_wifi_SSID(request->getParam("wSSID")->value());
-            persistence.set_wifi_PASS(request->getParam("wPASS")->value());
-            persistence.set_gsm_apn(request->getParam("gAPN")->value()); //save pin to unlock sim if needed
-            persistence.set_sim_pin(request->getParam("gPIN")->value());
-            persistence.set_platform_token(request->getParam("dTOKEN")->value());
+            Persistence.put("configured", "true");
+            Persistence.put("ssid", request->getParam("wSSID")->value());
+            Persistence.put("pass", request->getParam("wPASS")->value());
+            Persistence.put("apn", request->getParam("gAPN")->value()); //save pin to unlock sim if needed
+            Persistence.put("pin", request->getParam("gPIN")->value());
+            Persistence.put("token", request->getParam("dTOKEN")->value());
             request->send(200, "text/html",
                           "Your Configuration Saved And Device Will Restart in a second <br><a href=\"/\">Return to Home Page</a>");
             delay(1000);
@@ -107,19 +128,22 @@ void setup() {
         });
         connectToNetwork();
     }
+
+    delay(1000);
+    xTaskCreatePinnedToCore(
+            mqttLoop, /* Function to implement the task */
+            "MQTT_Loop", /* Name of the task */
+            10000,  /* Stack size in words */
+            NULL,  /* Task input parameter */
+            0,  /* Priority of the task */
+            NULL,  /* Task handle. */
+            0); /* Core where the task should run */
 }
 
 void loop() {
     rfController.loop();
     resetButton.loop();
     networkController.loop();
-    mqttController.loop();
-
-    //send DHT parameters to viralink each 10s
-    if ((Uptime::getMilliseconds() - lastSentDHTTime) > 10000) {
-        lastSentDHTTime = Uptime::getMilliseconds();
-        sendDHTParametersToViralink();
-    }
 }
 
 void on_message(const char *topic, byte *payload, unsigned int length) {
@@ -150,7 +174,7 @@ void on_message(const char *topic, byte *payload, unsigned int length) {
         set_gpio_status(data["params"]["pin"], data["params"]["enabled"]);
         String responseTopic = String(topic);
         responseTopic.replace("request", "response");
-        mqttController.getMqttClient()->publish(responseTopic.c_str(), get_gpio_status(data["params"]["pin"]).c_str());
+        mqttController.addToPublishQueue(responseTopic.c_str(), get_gpio_status(data["params"]["pin"]).c_str());
     }
 
     // you can update updateSendAttributesInterval with updateInterval method (you should send RPC message to device from platform)
@@ -166,8 +190,7 @@ void on_message(const char *topic, byte *payload, unsigned int length) {
 void set_gpio_status(int pin, boolean enabled) {
     digitalWrite(pin, enabled ? HIGH : LOW);
     // Update pin attributes
-    if (mqttController.isViralinkConnected())
-        mqttController.getMqttClient()->publish("v1/devices/me/attributes", get_gpio_status(pin).c_str());
+    mqttController.addToPublishQueue("v1/devices/me/attributes", get_gpio_status(pin).c_str());
 }
 
 // GET GPIO Status json
@@ -186,16 +209,16 @@ void connectToNetwork() {
     // autoConnect function try to connect to WIFI if fails then it will try to connect throw gsm network
     // you can use  networkController.connect2GSM() or networkController.connect2WIFi() function
     networkController.setAutoReconnect(true); //if network fails it will try to reconnect;
-//    networkController.connect2GSM(persistence.get_gsm_apn(), persistence.get_sim_pin(), 15);
-    networkController.connect2WIFi(persistence.get_wifi_SSID(), persistence.get_wifi_PASS(), 10);
-//    networkController.autoConnect(persistence.get_wifi_SSID(), persistence.get_wifi_PASS(),
-//                                  persistence.get_gsm_apn(), persistence.get_sim_pin(), 15, 10);
-//
+//    networkController.connect2GSM(Persistence.getValue("apn")->c_str(), Persistence.getValue("pin")->c_str(), 15);
+    networkController.connect2WIFi(Persistence.getValue("ssid")->c_str(), Persistence.getValue("pass")->c_str(), 10);
+//    networkController.autoConnect(Persistence.getValue("ssid")->c_str(), Persistence.getValue("pass")->c_str(),
+//                                  Persistence.getValue("apn")->c_str(), Persistence.getValue("pin")->c_str(), 15, 10);
 }
 
 void connectToViralink() {
     printDBGln("Try To Connect viralink platform");
-    mqttController.connectToViralink(&networkController, "ESP8266", persistence.get_platform_token(), "", on_message,
+    mqttController.connectToViralink(&networkController, "ESP8266", Persistence.getValue("token")->c_str(), "",
+                                     on_message,
                                      true,
                                      []() {
                                          PubSubClient *client = mqttController.getMqttClient();
@@ -204,12 +227,12 @@ void connectToViralink() {
 
                                          // send current status after connection
                                          printDBGln("Sending current GPIO status ...");
-                                         client->publish("v1/devices/me/attributes",
-                                                         get_gpio_status(RELAY1_PIN).c_str());
-                                         client->publish("v1/devices/me/attributes",
-                                                         get_gpio_status(RELAY2_PIN).c_str());
-                                         client->publish("v1/devices/me/attributes",
-                                                         get_gpio_status(RELAY3_PIN).c_str());
+                                         mqttController.addToPublishQueue("v1/devices/me/attributes",
+                                                                          get_gpio_status(RELAY1_PIN).c_str());
+                                         mqttController.addToPublishQueue("v1/devices/me/attributes",
+                                                                          get_gpio_status(RELAY2_PIN).c_str());
+                                         mqttController.addToPublishQueue("v1/devices/me/attributes",
+                                                                          get_gpio_status(RELAY3_PIN).c_str());
 
                                          // subscribe to receive updates of shared attributes - response format: {"updateInterval":10}
                                          client->subscribe("v1/devices/me/attributes");
@@ -221,8 +244,9 @@ void connectToViralink() {
                                          char payload[100];
                                          serializeJson(data, payload, sizeof(payload));
                                          printDBGln(String(payload).c_str());
-                                         client->publish("v1/devices/me/attributes/request/1", String(payload).c_str());
-                                     });
+                                         mqttController.addToPublishQueue("v1/devices/me/attributes/request/1",
+                                                                          String(payload).c_str());
+                                     }, 4096);
 }
 
 void sendDHTParametersToViralink() {
@@ -235,14 +259,10 @@ void sendDHTParametersToViralink() {
     if (isnan(eventT.temperature) || isnan(eventH.relative_humidity))
         return;
 
-    // If MQTT not connected to Platfrom Return
-    if (!mqttController.isViralinkConnected())
-        return;
-
     StaticJsonDocument<100> data;
     data["Temperature"] = eventT.temperature;
     data["Humidity"] = eventH.relative_humidity;
     char payload[100];
     serializeJson(data, payload, sizeof(payload));
-    mqttController.getMqttClient()->publish("v1/devices/me/telemetry", String(payload).c_str());
+    mqttController.addToPublishQueue("v1/devices/me/telemetry", String(payload).c_str());
 }

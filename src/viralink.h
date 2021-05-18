@@ -17,6 +17,7 @@ char viralinkServerURL[] = VIRALINK_URL;
 #include "Button.tpp"
 #include "InputController.tpp"
 #include "PulseMaker.tpp"
+#include "Queue.tpp"
 
 #if defined(F_WIFI) || defined(F_GSM)
 

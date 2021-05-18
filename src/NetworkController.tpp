@@ -66,9 +66,9 @@ public:
 
     NETWORK_MODE getNetworkMode() const;
 
-    void onConnecting(ConnectionEvent, float);
+    void onConnecting(ConnectionEvent connectingFunction, float period_seconds);
 
-    void onConnected(ConnectionEvent);
+    void onConnected(ConnectionEvent connectedFunction);
 
 #ifdef F_GSM
 
@@ -84,7 +84,7 @@ public:
 
     WiFiClient *getWiFi();
 
-    void connect2WIFi(String, String PASS, int wifiTimeout_seconds = 30);
+    void connect2WIFi(String SSID, String PASS, int wifiTimeout_seconds = 30);
 
     void openConfigWebServer(ArRequestHandlerFunction onRequest);
 
@@ -92,7 +92,8 @@ public:
 
     bool isConnected() const;
 
-    void autoConnect(String, String, String, String, int = 30, int = 30);
+    void autoConnect(String SSID, String PASS, String apn, String pin,
+                     int wifiTimeout_seconds = 30, int gsmTimeout_seconds = 30);
 
     void setAutoReconnect(bool autoReconnect);
 
@@ -155,7 +156,7 @@ void NetworkController::init() {
 }
 
 void NetworkController::loop() {
-    uint64_t millis = Uptime::getMilliseconds();
+    uint64_t millis = Uptime.getMilliseconds();
 
     if (connectingEvent != nullptr && (gsmConnecting || wifiConnecting) &&
         ((millis - lastConnectingTime) > ((uint64_t) (connectingEventPeriod * 1000)))) {
@@ -170,7 +171,7 @@ void NetworkController::loop() {
 #ifdef F_WIFI
 
         if (wifiConnecting) {
-            if ((millis - startWiFiConnectingTime) < (wTimeout * 1000)) {
+            if ((millis - startWiFiConnectingTime) < ((uint64_t) (wTimeout * 1000))) {
                 if (WiFi.status() == WL_CONNECTED) {
                     printDBG("Connected To WiFi with IP: ");
                     printDBGln(WiFi.localIP().toString().c_str());
@@ -296,7 +297,7 @@ void NetworkController::connect2WIFi(String SSID, String PASS, int wifiTimeout_s
     wPASS = PASS;
     wTimeout = wifiTimeout_seconds;
     wifiConnecting = true;
-    startWiFiConnectingTime = Uptime::getMilliseconds();
+    startWiFiConnectingTime = Uptime.getMilliseconds();
     networkMode = NOT_CONNECTED;
 
     printDBGln("Connecting to WIFi");
@@ -316,7 +317,7 @@ void NetworkController::connect2GSM(String apn, String pin, int gsmTimeout_secon
     gSimPin = pin;
     gTimeout = gsmTimeout_seconds;
     gsmConnecting = true;
-    startGsmConnectingTime = Uptime::getMilliseconds();
+    startGsmConnectingTime = Uptime.getMilliseconds();
     networkMode = NOT_CONNECTED;
 
     if (!modem->isNetworkConnected()) {

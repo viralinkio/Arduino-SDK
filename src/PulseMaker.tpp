@@ -71,16 +71,16 @@ void PulseMaker::stop(bool setStatus) {
 
 void PulseMaker::loop() {
     if (running) {
-        if (state && (Uptime::getMilliseconds() - lastEvent) >= enableDuration_ms)
+        if (state && (Uptime.getMilliseconds() - lastEvent) >= enableDuration_ms)
             setState(false);
-        else if (!state && (Uptime::getMilliseconds() - lastEvent) >= disableDuration_ms)
+        else if (!state && (Uptime.getMilliseconds() - lastEvent) >= disableDuration_ms)
             setState(true);
     }
 }
 
 void PulseMaker::setState(bool state) {
     this->state = state;
-    lastEvent = Uptime::getMilliseconds();
+    lastEvent = Uptime.getMilliseconds();
     digitalWrite(pin, activeLow != state);
     if (running && counter-- == 1) {
         if (onFinishedEvent != nullptr) onFinishedEvent();

@@ -27,12 +27,12 @@ private:
 void Timer::start(unsigned long time, OnFinished onFinished) {
     this->time = time;
     onFinishedEvent = onFinished;
-    startedTime = Uptime::getMilliseconds();
+    startedTime = Uptime.getMilliseconds();
     enable = true;
 }
 
 void Timer::loop() {
-    if (enable && (Uptime::getMilliseconds() - startedTime) > time) {
+    if (enable && (Uptime.getMilliseconds() - startedTime) > time) {
         enable = false;
         if (onFinishedEvent != nullptr) onFinishedEvent();
     }

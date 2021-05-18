@@ -42,10 +42,10 @@ void InputController::loop() {
 
     if (recordState != newValue) {
         recordState = newValue;
-        firstDetectTime = Uptime::getMilliseconds();
+        firstDetectTime = Uptime.getMilliseconds();
     }
 
-    if ((recordState != state) && (Uptime::getMilliseconds() - firstDetectTime) > detectThreshold) {
+    if ((recordState != state) && (Uptime.getMilliseconds() - firstDetectTime) > ((uint64_t) detectThreshold)) {
         state = recordState;
         if (onChangeEvent != nullptr) onChangeEvent((state != activeLow));
     }
