@@ -6,6 +6,7 @@
  this library store key-value data in following format
  <prefix><key-value count><keySize[0]><keyPayload[0]><valueSize[0]><valuePayload[0]><keySize[1]><keyPayload[1]><valueSize[1]><valuePayload[1]>
  */
+
 #include "map"
 #include <EEPROM.h>
 #include <WString.h>
@@ -14,7 +15,7 @@ class PersistenceClass {
 
 public:
 
-    void init(int = 512);
+    void init(int maxSize = 512);
 
     String *getValue(const String &key);
 
@@ -34,6 +35,7 @@ private:
     uint16_t size = 0, freeSpace = 0;
 
     std::map<String, String> keyValues;
+    String prefix = "VIRA";
 
     bool saveInEEPROM();
 
@@ -49,7 +51,6 @@ private:
 
     void addStringToByteArray(const String &text, byte *buffer, uint16_t startIndex = 0);
 
-    String prefix = "VIRA";
 };
 
 bool PersistenceClass::checkExistence(const String &key) {
@@ -139,16 +140,16 @@ bool PersistenceClass::loadFromEEPROM() {
 
     uint16_t p = 0;
     p += prefix.length();
-    byte keysSize = EEPROM.readByte(p);
+    byte keysSize = EEPROM.read(p);
     p++;
 
     for (int i = 0; i < keysSize; i++) {
-        byte keySize = EEPROM.readByte(p);
+        byte keySize = EEPROM.read(p);
         p++;
         String key = readEEPROM(p, keySize);
         p += keySize;
 
-        byte valueSize = EEPROM.readByte(p);
+        byte valueSize = EEPROM.read(p);
         p++;
         String value = readEEPROM(p, valueSize);
         p += valueSize;
@@ -188,13 +189,13 @@ bool PersistenceClass::writeEEPROM(uint16_t address, const byte *data, uint16_t 
 String PersistenceClass::readEEPROM(uint16_t startAddress, uint16_t len) {
     String data;
     for (int i = startAddress; i < startAddress + len; i++)
-        data += (char) EEPROM.readChar(i);
+        data += (char) EEPROM.read(i);
     return data;
 }
 
 bool PersistenceClass::readEEPROM(uint16_t startAddress, uint16_t len, byte *buffer) {
     for (int i = 0; i < len; i++)
-        buffer[i] = EEPROM.readByte(startAddress + i);
+        buffer[i] = EEPROM.read(startAddress + i);
     return true;
 }
 
