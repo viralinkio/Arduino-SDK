@@ -10,6 +10,7 @@
 #define  VIRALINK_URL "console.viralink.io"
 char viralinkServerURL[] = VIRALINK_URL;
 
+#include <Arduino.h>
 #include "Uptime.h"
 #include "PrintDBG.tpp"
 #include "Persistence.tpp"
