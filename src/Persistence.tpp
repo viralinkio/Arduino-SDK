@@ -17,19 +17,21 @@ public:
 
     void init(int maxSize = 512);
 
-    String *getValue(const String &key);
+    String *getValue(String key);
 
-    bool removeKey(const String &key);
+    bool removeKey(String key, bool commitNow = false);
 
-    bool put(const String &key, String value);
+    bool put(String key, String value, bool commitNow = false);
 
     uint8_t keysCount();
 
-    bool clear();
+    bool clear(bool commitNow = false);
 
-    bool checkExistence(const String &key);
+    bool checkExistence(String key);
 
     uint16_t availableSpace();
+
+    bool commit();
 
 private:
     uint16_t size = 0, freeSpace = 0;
@@ -37,7 +39,6 @@ private:
     std::map<String, String> keyValues;
     String prefix = "VIRA";
 
-    bool saveInEEPROM();
 
     bool loadFromEEPROM();
 
@@ -53,7 +54,7 @@ private:
 
 };
 
-bool PersistenceClass::checkExistence(const String &key) {
+bool PersistenceClass::checkExistence(String key) {
     auto it = keyValues.begin();
     for (int i = 0; i < keyValues.size(); i++) {
         if (it->first.equals(key)) return true;
@@ -66,30 +67,33 @@ uint16_t PersistenceClass::availableSpace() {
     return freeSpace;
 }
 
-bool PersistenceClass::clear() {
+bool PersistenceClass::clear(bool commitNow) {
     keyValues.clear();
-    return saveInEEPROM();
+    if (commitNow) return commit();
+    return true;
 }
 
 uint8_t PersistenceClass::keysCount() {
     return keyValues.size();
 }
 
-String *PersistenceClass::getValue(const String &key) {
+String *PersistenceClass::getValue(String key) {
     if (!checkExistence(key)) return nullptr;
     return &keyValues[key];
 }
 
-bool PersistenceClass::removeKey(const String &key) {
+bool PersistenceClass::removeKey(String key, bool commitNow) {
     if (!checkExistence(key)) return false;
     keyValues.erase(key);
-    return saveInEEPROM();
+    if (commitNow) return commit();
+    return true;
 }
 
-bool PersistenceClass::put(const String &key, String value) {
+bool PersistenceClass::put(String key, String value, bool commitNow) {
     if (key.isEmpty()) return false;
     keyValues[key] = std::move(value);
-    return saveInEEPROM();
+    if (commitNow) return commit();
+    return true;
 }
 
 void PersistenceClass::init(int maxSize) {
@@ -101,7 +105,7 @@ void PersistenceClass::init(int maxSize) {
     loadFromEEPROM();
 }
 
-bool PersistenceClass::saveInEEPROM() {
+bool PersistenceClass::commit() {
     byte buffer[512];
     uint16_t p = 0;
     addStringToByteArray(prefix, buffer);
