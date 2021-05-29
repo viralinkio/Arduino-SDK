@@ -31,11 +31,19 @@
 
 #include <viralink.h>
 #include <DHT_U.h>
+#include "Ticker.h"
+
+#include <utility>
 
 //DHT
 DHT_Unified dht(SENSOR_PIN, DHT11);
 sensor_t sensor;
 uint64_t lastSentDHTTime; //used to send Temperature and Humidity To Server Periodically
+Ticker restartTicker;
+
+void resetESP() {
+    ESP.restart();
+}
 
 void sendDHTParametersToViralink();
 
@@ -90,7 +98,7 @@ void setup() {
     // detect 3s long pressed on button to activate factory reset
     resetButton.onLongClick([]() {
         printDBGln("Factory Reset Function Called");
-        Persistence.removeKey("configured");
+        Persistence.removeKey("configured", true);
         delay(1000); // this is necessary before restart otherwise it will run again after reboot
         ESP.restart();
     }, 3000);
@@ -103,7 +111,7 @@ void setup() {
     // double click reset key to start Learning Remote Trusted Address
     resetButton.onDoubleClick([]() {
         rfController.startLearning([](unsigned long address) {
-            Persistence.put("RF_Address", String(address, HEX));
+            Persistence.put("RF_Address", String(address, HEX), true);
         });
     });
 
@@ -118,17 +126,17 @@ void setup() {
         ackLed.setLedStatus(PinController::OFF);
         networkController.wifiAPMode(String(AP_WIFI_SSID).c_str(), String(AP_WIFI_PASS).c_str());
 
-        networkController.openConfigWebServer([](AsyncWebServerRequest *request) {
+        networkController.openConfigWebServer([](String wifiSSID, String wifiPassword, String simAPN, String simPin,
+                                                 String viralinkToken) -> String {
             Persistence.put("configured", "true");
-            Persistence.put("ssid", request->getParam("wSSID")->value());
-            Persistence.put("pass", request->getParam("wPASS")->value());
-            Persistence.put("apn", request->getParam("gAPN")->value()); //save pin to unlock sim if needed
-            Persistence.put("pin", request->getParam("gPIN")->value());
-            Persistence.put("token", request->getParam("dTOKEN")->value());
-            request->send(200, "text/html",
-                          "Your Configuration Saved And Device Will Restart in a second <br><a href=\"/\">Return to Home Page</a>");
-            delay(1000);
-            ESP.restart();
+            Persistence.put("ssid", wifiSSID);
+            Persistence.put("pass", wifiPassword);
+            Persistence.put("apn", simAPN); //save pin to unlock sim if needed
+            Persistence.put("pin", simPin);
+            Persistence.put("token", viralinkToken);
+            Persistence.commit();
+            restartTicker.once(2, resetESP);
+            return "Your Configuration Saved And Device Will Restart in 2 second";
         });
         return;
     } else {

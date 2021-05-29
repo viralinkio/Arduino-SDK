@@ -4,37 +4,47 @@
 #include "PrintDBG.tpp"
 
 #ifdef F_WIFI
-#ifdef ESP32
+#if defined(ESP32)
 
 #include <WiFi.h>
-#include <AsyncTCP.h>
+#include <WebServer.h>
 
-#else
-
+#elif defined(ESP8266)
 #include <ESP8266WiFi.h>
-#include <ESPAsyncTCP.h>
-
+#include <ESP8266WebServer.h>
+#else
+#error "Not Supported Uptime Hardware"
 #endif
 
-#include <ESPAsyncWebServer.h>
+const char index_html[] PROGMEM = R"=====(
+<!DOCTYPE html>
+<html>
+<body>
 
-const char index_html[] PROGMEM = R"rawliteral(
-<!DOCTYPE HTML><html><head>
-  <title>Config Device Page</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  </head><body>
-  <form action="/get">
-    WiFi SSID <input type="text" name="wSSID"><br>
-    WiFi Password <input type="text " name="wPASS"><br>
-    GSM APN <input type="text " name="gAPN"><br>
-    SIM PIn <input type="text " name="gPIN"><br>
-    Device Token <input type="text " name="dTOKEN"><br>
-    <input type="submit" value="Submit">
-  </form>
-</body></html>)rawliteral";
+<h2>Viralink Config<h2>
+<h3> Enter Your Config And Press Submit Button</h3>
+
+<form action="/action_page">
+  WiFi SSID:<br>
+  <input type="text" name="wSSID">
+  <br>
+  WiFi Password:<br>
+  <input type="text" name="wPASS">
+  <br>
+  GSM APN:<br>
+  <input type="text" name="gAPN">
+  <br>
+  SIM PIn:<br>
+  <input type="text" name="gPIN">
+  <br>
+  Device Token:<br>
+  <input type="text" name="dTOKEN">
+  <br><br>
+  <input type="submit" value="Submit">
+</form>
+</body></html>)=====";
 
 #endif
-
 
 #ifdef F_GSM
 #if !defined(GSM_ENABLE_PIN) || !defined(SerialAT)
@@ -80,13 +90,16 @@ public:
 
 #ifdef F_WIFI
 
+    typedef String (*ConfigServerParameters)(String wifiSSID, String wifiPassword, String simAPN, String simPin,
+                                             String viralinkToken);
+
     void wifiAPMode(const String &SSID, const String &PASS);
 
     WiFiClient *getWiFi();
 
     void connect2WIFi(String SSID, String PASS, int wifiTimeout_seconds = 30);
 
-    void openConfigWebServer(ArRequestHandlerFunction onRequest);
+    void openConfigWebServer(ConfigServerParameters configServerParameters);
 
 #endif
 
@@ -125,8 +138,15 @@ private:
 #endif
 
 #ifdef F_WIFI
+    static ConfigServerParameters serverParameters;
     WiFiClient wiFiClient;
-    AsyncWebServer server = AsyncWebServer(80);
+#if defined(ESP32)
+    static WebServer server;
+#elif defined(ESP8266)
+    static ESP8266WebServer server;
+#else
+#error "Not Supported Uptime Hardware"
+#endif
 #endif
 
 };
@@ -156,6 +176,7 @@ void NetworkController::init() {
 }
 
 void NetworkController::loop() {
+    server.handleClient();
     uint64_t millis = Uptime.getMilliseconds();
 
     if (connectingEvent != nullptr && (gsmConnecting || wifiConnecting) &&
@@ -267,16 +288,37 @@ void NetworkController::autoConnect(String SSID, String PASS, String apn, String
 }
 
 #ifdef F_WIFI
+NetworkController::ConfigServerParameters NetworkController::serverParameters;
 
-void NetworkController::openConfigWebServer(ArRequestHandlerFunction onRequest) {
-    server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
-        request->send_P(200, "text/html", index_html);
+#if defined(ESP32)
+WebServer NetworkController::server(80);
+#elif defined(ESP8266)
+ESP8266WebServer NetworkController::server(80);
+
+#else
+#error "Not Supported Uptime Hardware"
+#endif
+
+void NetworkController::openConfigWebServer(ConfigServerParameters configServerParameters) {
+    serverParameters = configServerParameters;
+
+    //Which routine to handle at root location
+    server.on("/", []() {
+        server.send(200, "text/html", index_html); //Send web page
     });
-    server.on("/get", HTTP_GET, std::move(onRequest));
-    server.onNotFound([](AsyncWebServerRequest *request) {
-        request->send(404, "text/plain", "Not found");
+
+    //form action is handled here
+    server.on("/action_page", []() {
+        String message = "";
+        if (serverParameters != nullptr)
+            message = serverParameters(server.arg("wSSID"), server.arg("wPASS"), server.arg("gAPN"), server.arg("gPIN"),
+                                       server.arg("dTOKEN"));
+
+        String s = message + "<br><a href=\"/\">Return to Home Page</a>";
+        server.send(200, "text/html", s); //Send web page
     });
     server.begin();
+
 }
 
 void NetworkController::wifiAPMode(const String &SSID, const String &PASS) {
@@ -303,6 +345,14 @@ void NetworkController::connect2WIFi(String SSID, String PASS, int wifiTimeout_s
     printDBGln("Connecting to WIFi");
     WiFi.mode(WIFI_STA);
     WiFi.begin(SSID.c_str(), PASS.c_str());
+}
+
+WiFiClient *NetworkController::getWiFi() {
+    return &wiFiClient;
+}
+
+void NetworkController::setAutoReconnect(bool autoReconnectMode) {
+    NetworkController::autoReconnect = autoReconnectMode;
 }
 
 #endif
@@ -337,6 +387,10 @@ void NetworkController::connect2GSM(String apn, String pin, int gsmTimeout_secon
             printDBGln("Network connected");
         }
     }
+}
+
+TinyGsm *NetworkController::getModem() const {
+    return modem;
 }
 
 #endif
@@ -374,24 +428,5 @@ Client *NetworkController::getClient() {
 #endif
     return nullptr;
 }
-
-#ifdef F_GSM
-
-TinyGsm *NetworkController::getModem() const {
-    return modem;
-}
-
-#endif
-#ifdef F_WIFI
-
-WiFiClient *NetworkController::getWiFi() {
-    return &wiFiClient;
-}
-
-void NetworkController::setAutoReconnect(bool autoReconnectMode) {
-    NetworkController::autoReconnect = autoReconnectMode;
-}
-
-#endif
 
 #endif
