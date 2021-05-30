@@ -200,7 +200,7 @@ void on_message(const char *topic, byte *payload, unsigned int length) {
         set_gpio_status(data["params"]["pin"], data["params"]["enabled"]);
         String responseTopic = String(topic);
         responseTopic.replace("request", "response");
-        mqttController.addToPublishQueue(responseTopic.c_str(), get_gpio_status(data["params"]["pin"]).c_str());
+        mqttController.addToPublishQueue(responseTopic.c_str(), String("Done").c_str());
     }
 
     // you can update updateSendAttributesInterval with updateInterval method (you should send RPC message to device from platform)
@@ -221,9 +221,9 @@ void set_gpio_status(int pin, boolean enabled) {
 
 // GET GPIO Status json
 String get_gpio_status(uint8_t pin) {
-    StaticJsonDocument<1024> data;
+    StaticJsonDocument<100> data;
     data[String(pin)] = digitalRead(pin) != 0;
-    char payload[2048];
+    char payload[200];
     serializeJson(data, payload, sizeof(payload));
     String strPayload = String(payload);
     printDBG("Get gpio status: ");
@@ -272,7 +272,7 @@ void connectToViralink() {
                                          printDBGln(String(payload).c_str());
                                          mqttController.addToPublishQueue("v1/devices/me/attributes/request/1",
                                                                           String(payload).c_str());
-                                     }, 4096);
+                                     }, 10224);
 }
 
 void sendDHTParametersToViralink() {

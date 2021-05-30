@@ -95,7 +95,7 @@ void MQTTController::loop() {
         if (mqttClient->connect(id.c_str(), token.c_str(), pass.c_str())) {
             printDBGln("[Connected]");
             if (sendAttributes)
-                mqttClient->publish("v1/devices/me/attributes", get_Connection_info().c_str());
+                addToPublishQueue("v1/devices/me/attributes", get_Connection_info().c_str());
             if (event != nullptr) event();
 
         } else {
@@ -122,7 +122,7 @@ uint8_t temprature_sens_read();
 #endif
 
 String MQTTController::get_Connection_info() {
-    StaticJsonDocument<1024> data;
+    StaticJsonDocument<200> data;
     data[String("Cpu FreqMHZ")] = ESP.getCpuFreqMHz();
     data[String("Cpu SDK Version")] = ESP.getSdkVersion();
     data[String("Flash Chip Speed")] = ESP.getFlashChipSpeed();
@@ -149,7 +149,7 @@ String MQTTController::get_Connection_info() {
         data[String("Operator")] = modem->getOperator();
     }
 #endif
-    char payload[2048];
+    char payload[400];
     serializeJson(data, payload, sizeof(payload));
     String strPayload = String(payload);
     printDBGln(strPayload.c_str());
@@ -160,7 +160,7 @@ void MQTTController::sendAttributesFunc() {
     if (!isViralinkConnected())
         return;
 
-    StaticJsonDocument<1024> data;
+    StaticJsonDocument<100> data;
     data[String("upTime")] = Uptime.getSeconds();
     data[String("ESP Free Heap")] = ESP.getFreeHeap();
 
@@ -179,9 +179,9 @@ void MQTTController::sendAttributesFunc() {
         data[String("IP")] = nc->getWiFi()->localIP().toString();
     }
 #endif
-    char payload[1024];
+    char payload[200];
     serializeJson(data, payload, sizeof(payload));
-    mqttClient->publish("v1/devices/me/attributes", payload);
+    addToPublishQueue("v1/devices/me/attributes", payload);
 }
 
 void MQTTController::updateSendAttributesInterval(float seconds) {

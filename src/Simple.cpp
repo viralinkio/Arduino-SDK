@@ -8,9 +8,9 @@
 #define F_MQTT //add lib to connect to Platform via MQTT (you can use mqttClient anyWhere after import)
 
 #define RELAY1_PIN 2
-#define WIFI_SSID "wifissid"
-#define WIFI_PASSWORD "wifipassword"
-#define VIRALINK_TOKEN "xxxxxxxxxxx"
+#define WIFI_SSID "Vira Afzar Co Ltd."
+#define WIFI_PASSWORD "!ceC@d3#TE@M"
+#define VIRALINK_TOKEN "PWTizzRrK6YfSsGarG6c"
 
 #include "viralink.h"
 
@@ -26,18 +26,12 @@ void connectToViralink();
 
 NetworkController networkController;
 MQTTController mqttController;
-bool relayStatus;
 
 void setup() {
     SerialMon.begin(115200);
     pinMode(RELAY1_PIN, OUTPUT);
 
     networkController.init();
-
-    networkController.onConnecting([]() {
-        relayStatus = !relayStatus;
-        digitalWrite(RELAY1_PIN, relayStatus);
-    }, 2);
 
     networkController.onConnected([]() {
         printDBG("Connected To: ");
@@ -80,7 +74,7 @@ void on_message(const char *topic, byte *payload, unsigned int length) {
         set_gpio_status(data["params"]["pin"], data["params"]["enabled"]);
         String responseTopic = String(topic);
         responseTopic.replace("request", "response");
-        mqttController.getMqttClient()->publish(responseTopic.c_str(), get_gpio_status(data["params"]["pin"]).c_str());
+        mqttController.addToPublishQueue(responseTopic.c_str(), String("Done").c_str());
     }
 
     // you can update updateSendAttributesInterval with updateInterval method (you should send RPC message to device from platform)
@@ -96,15 +90,14 @@ void on_message(const char *topic, byte *payload, unsigned int length) {
 void set_gpio_status(int pin, boolean enabled) {
     digitalWrite(pin, enabled ? HIGH : LOW);
     // Update pin attributes
-    if (mqttController.isViralinkConnected())
-        mqttController.getMqttClient()->publish("v1/devices/me/attributes", get_gpio_status(pin).c_str());
+    mqttController.addToPublishQueue("v1/devices/me/attributes", get_gpio_status(pin).c_str());
 }
 
 // GET GPIO Status json
 String get_gpio_status(uint8_t pin) {
-    StaticJsonDocument<1024> data;
+    StaticJsonDocument<100> data;
     data[String(pin)] = digitalRead(pin) != 0;
-    char payload[2048];
+    char payload[200];
     serializeJson(data, payload, sizeof(payload));
     String strPayload = String(payload);
     printDBG("Get gpio status: ");
@@ -128,8 +121,8 @@ void connectToViralink() {
 
                                          // send current status after connection
                                          printDBGln("Sending current GPIO status ...");
-                                         client->publish("v1/devices/me/attributes",
-                                                         get_gpio_status(RELAY1_PIN).c_str());
+                                         mqttController.addToPublishQueue("v1/devices/me/attributes",
+                                                                          get_gpio_status(RELAY1_PIN).c_str());
 
                                          // subscribe to receive updates of shared attributes - response format: {"updateInterval":10}
                                          client->subscribe("v1/devices/me/attributes");
@@ -141,6 +134,7 @@ void connectToViralink() {
                                          char payload[100];
                                          serializeJson(data, payload, sizeof(payload));
                                          printDBGln(String(payload).c_str());
-                                         client->publish("v1/devices/me/attributes/request/1", String(payload).c_str());
-                                     });
+                                         mqttController.addToPublishQueue("v1/devices/me/attributes/request/1",
+                                                                          String(payload).c_str());
+                                     }, 1024);
 }
