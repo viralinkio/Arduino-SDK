@@ -32,8 +32,7 @@
 #include <viralink.h>
 #include <DHT_U.h>
 #include "Ticker.h"
-
-#include <utility>
+#include <esp_task_wdt.h>
 
 //DHT
 DHT_Unified dht(SENSOR_PIN, DHT11);
@@ -70,12 +69,10 @@ RFController rfController(RF_PIN, 200); // used to receive with RF-433Mhz remote
 void mqttLoop(void *parameter) {
     while (true) {
         mqttController.loop();
-
         if ((Uptime.getMilliseconds() - lastSentDHTTime) > 10000) {
             lastSentDHTTime = Uptime.getMilliseconds();
             sendDHTParametersToViralink();
         }
-        delay(1); // if you not delay watchDog will timeout
     }
 }
 
@@ -103,17 +100,17 @@ void setup() {
         ESP.restart();
     }, 3000);
 
-    // Recover Trusted Key from Persistence after Reboot
-    if (Persistence.checkExistence("RF_Address")) {
-        rfController.setTrustAddress(strtol(Persistence.getValue("RF_Address")->c_str(), nullptr, 16));
-    }
-
     // double click reset key to start Learning Remote Trusted Address
     resetButton.onDoubleClick([]() {
         rfController.startLearning([](unsigned long address) {
             Persistence.put("RF_Address", String(address, HEX), true);
         });
     });
+
+    // Recover Trusted Key from Persistence after Reboot
+    if (Persistence.checkExistence("RF_Address")) {
+        rfController.setTrustAddress(strtol(Persistence.getValue("RF_Address")->c_str(), nullptr, 16));
+    }
 
     //control Relays with RF-433 MHZ
     rfController.onDataReceived([](uint8_t key) {
@@ -156,6 +153,7 @@ void setup() {
     }
 
     delay(1000);
+    disableCore0WDT();
     xTaskCreatePinnedToCore(
             mqttLoop, /* Function to implement the task */
             "MQTT_Loop", /* Name of the task */
@@ -235,10 +233,10 @@ void connectToNetwork() {
     // autoConnect function try to connect to WIFI if fails then it will try to connect throw gsm network
     // you can use  networkController.connect2GSM() or networkController.connect2WIFi() function
     networkController.setAutoReconnect(true); //if network fails it will try to reconnect;
-//    networkController.connect2GSM(Persistence.getValue("apn")->c_str(), Persistence.getValue("pin")->c_str(), 15);
-    networkController.connect2WIFi(Persistence.getValue("ssid")->c_str(), Persistence.getValue("pass")->c_str(), 10);
 //    networkController.autoConnect(Persistence.getValue("ssid")->c_str(), Persistence.getValue("pass")->c_str(),
-//                                  Persistence.getValue("apn")->c_str(), Persistence.getValue("pin")->c_str(), 15, 10);
+//                                  Persistence.getValue("apn")->c_str(), Persistence.getValue("pin")->c_str());
+//    networkController.connect2GSM(Persistence.getValue("apn")->c_str(), Persistence.getValue("pin")->c_str());
+    networkController.connect2WIFi(Persistence.getValue("ssid")->c_str(), Persistence.getValue("pass")->c_str());
 }
 
 void connectToViralink() {

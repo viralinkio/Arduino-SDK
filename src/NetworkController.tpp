@@ -84,7 +84,7 @@ public:
 
     TinyGsm *getModem() const;
 
-    void connect2GSM(String, String, int = 30);
+    void connect2GSM(String apn, String pin, int gsmTimeout_seconds = 30);
 
 #endif
 
@@ -126,7 +126,6 @@ private:
     int wTimeout = -1;
     String wSSID, wPASS;
 
-    uint64_t startGsmConnectingTime;
     String gApn;
     String gSimPin;
     int gTimeout = -1;
@@ -367,7 +366,6 @@ void NetworkController::connect2GSM(String apn, String pin, int gsmTimeout_secon
     gSimPin = pin;
     gTimeout = gsmTimeout_seconds;
     gsmConnecting = true;
-    startGsmConnectingTime = Uptime.getMilliseconds();
     networkMode = NOT_CONNECTED;
 
     if (!modem->isNetworkConnected()) {
