@@ -270,7 +270,7 @@ void connectToViralink() {
                                          printDBGln(String(payload).c_str());
                                          mqttController.addToPublishQueue("v1/devices/me/attributes/request/1",
                                                                           String(payload).c_str());
-                                     }, 10224);
+                                     }, 1024);
 }
 
 void sendDHTParametersToViralink() {
