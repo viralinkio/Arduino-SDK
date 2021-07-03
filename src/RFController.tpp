@@ -31,7 +31,7 @@ private:
     LearnedNewRemoteEvent learnEvent;
     RCSwitch rcSwitch;
     uint8_t pin;
-    unsigned long trustedAddress;
+    unsigned long trustedAddress; //todo: convert to vector
     bool learning;
     uint64_t lastReceiveTime;
     int debounce_ms;

@@ -38,13 +38,11 @@ void UptimeClass::calculateTime() {
         lastMillis = now;
     }
 
-#elif defined(ESP8266)
+#else
     if (now < lastMillis)
         counter++;
     lastMillis = now;
 
-#else
-#error "Not Supported Uptime Hardware"
 #endif
 
     milliseconds = 4294967295 * counter + now;

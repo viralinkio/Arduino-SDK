@@ -107,6 +107,24 @@ void setup() {
         });
     });
 
+    resetButton.onClick([]() {
+
+//        networkController.getModem()->sendSMS(String("09xxxxxxxxx"), String("English Test"));
+//        networkController.sendUTF16SMS(String("09xxxxxxxxx"), String("سلامی از Arduino"));
+
+//        networkController.deleteSMS(NetworkController::NetworkController::AT_INDEX, 1);
+
+//        SMS buffer[10];
+//        uint8_t size = networkController.readSMS(NetworkController::ALL, buffer);
+//        for (int i = 0; i < size; i++) {
+//            Serial.println(buffer[i].index);
+//            Serial.println(buffer[i].phone);
+//            Serial.println(buffer[i].text);
+//            Serial.println(buffer[i].time);
+//        }
+
+    });
+
     // Recover Trusted Key from Persistence after Reboot
     if (Persistence.checkExistence("RF_Address")) {
         rfController.setTrustAddress(strtol(Persistence.getValue("RF_Address")->c_str(), nullptr, 16));
@@ -155,13 +173,13 @@ void setup() {
     delay(1000);
     disableCore0WDT();
     xTaskCreatePinnedToCore(
-            mqttLoop, /* Function to implement the task */
-            "MQTT_Loop", /* Name of the task */
-            10000,  /* Stack size in words */
-            NULL,  /* Task input parameter */
-            0,  /* Priority of the task */
-            NULL,  /* Task handle. */
-            0); /* Core where the task should run */
+            mqttLoop, // Function to implement the task
+            "MQTT_Loop", // Name of the task
+            10000, // Stack size in words
+            NULL,  // Task input parameter
+            0, // Priority of the task
+            NULL,  // Task handle.
+            0); // Core where the task should run
 }
 
 void loop() {

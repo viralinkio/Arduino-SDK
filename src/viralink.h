@@ -13,12 +13,15 @@ char viralinkServerURL[] = VIRALINK_URL;
 #include <Arduino.h>
 #include "Uptime.h"
 #include "PrintDBG.tpp"
-#include "Persistence.tpp"
 #include "PinController.tpp"
-#include "Button.tpp"
 #include "InputController.tpp"
 #include "PulseMaker.tpp"
+
+#if defined(ESP32) || defined(ESP8266)
+#include "Persistence.tpp"
 #include "Queue.tpp"
+#include "Button.tpp"
+#endif
 
 #if defined(F_WIFI) || defined(F_GSM)
 

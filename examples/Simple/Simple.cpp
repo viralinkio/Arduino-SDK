@@ -7,6 +7,11 @@
 #define F_WIFI      // wifi feature
 #define F_MQTT //add lib to connect to Platform via MQTT (you can use mqttClient anyWhere after import)
 
+#define F_GSM       // gsm feature add to Libs
+#define TINY_GSM_MODEM_SIM800     //GSM MODEL Depends on Each Device
+#define GSM_ENABLE_PIN 26         //if you enable GSM feature the gsm pin should be defined
+#define SerialAT Serial          //if you enable GSM feature the SerialAT should be defined
+
 #define RELAY1_PIN 2
 #define WIFI_SSID "Vira Afzar Co Ltd."
 #define WIFI_PASSWORD "!ceC@d3#TE@M"

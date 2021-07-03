@@ -53,7 +53,11 @@ const char index_html[] PROGMEM = R"=====(
 
 #include <TinyGsmClient.h>
 
-#include <utility>
+#if (defined(ESP8266) || defined(ESP32)) && defined(TINY_GSM_MODEM_SIM800)
+
+#include "SMS.tpp"
+
+#endif
 
 #endif
 
@@ -86,6 +90,23 @@ public:
 
     void connect2GSM(String apn, String pin, int gsmTimeout_seconds = 30);
 
+#if (defined(ESP8266) || defined(ESP32)) && defined(TINY_GSM_MODEM_SIM800)
+    enum Status {
+        AT_INDEX,
+        ALL,
+        REC_READ,
+        REC_UNREAD,
+        STO_SENT,
+        STO_UNSENT,
+    };
+
+    bool deleteSMS(Status status, uint8_t index = 0);
+
+    uint8_t readSMS(Status status, SMS buffer[], uint8_t index = 0);
+
+    bool sendUTF16SMS(const String &number, const String &text);
+
+#endif
 #endif
 
 #ifdef F_WIFI
@@ -175,7 +196,9 @@ void NetworkController::init() {
 }
 
 void NetworkController::loop() {
+#ifdef F_WIFI
     server.handleClient();
+#endif
     uint64_t millis = Uptime.getMilliseconds();
 
     if (connectingEvent != nullptr && (gsmConnecting || wifiConnecting) &&
@@ -277,8 +300,8 @@ void NetworkController::autoConnect(String SSID, String PASS, String apn, String
         return;
 
     autoConnectMode = true;
-    gApn = std::move(apn);
-    gSimPin = std::move(pin);
+    gApn = apn;
+    gSimPin = pin;
     gTimeout = gsmTimeout_seconds;
 
 #ifdef F_WIFI
@@ -357,6 +380,121 @@ void NetworkController::setAutoReconnect(bool autoReconnectMode) {
 #endif
 
 #ifdef F_GSM
+
+#if (defined(ESP8266) || defined(ESP32)) && defined(TINY_GSM_MODEM_SIM800)
+
+bool NetworkController::deleteSMS(NetworkController::Status status, uint8_t smsIndex) {
+
+    if (status == AT_INDEX && smsIndex == 0) return false;
+
+    String cmgdValue;
+    switch (status) {
+        case AT_INDEX:
+            cmgdValue = String(smsIndex) + ",0";
+            break;
+        case ALL:
+            cmgdValue = "0,4";;
+            break;
+        case REC_READ:
+            cmgdValue = "0,1";
+            break;
+        default:
+            return false;
+    }
+    String bf;
+    modem->sendAT(GF("+CMGF=1"));
+    modem->waitResponse();
+
+    modem->sendAT(GF("+CPMS=\"MT\""));
+    modem->waitResponse();
+
+    modem->sendAT(GF("+CMGD="), cmgdValue);
+    modem->waitResponse(5000L, bf);
+
+    bool result = bf.indexOf("OK") != -1;
+    bf.clear();
+    return result;
+}
+
+uint8_t NetworkController::readSMS(NetworkController::Status status, SMS *buffer, uint8_t smsIndex) {
+
+    if (buffer == nullptr) return 0;
+    if (status == AT_INDEX && smsIndex == 0) return 0;
+
+    String cmglValue;
+    switch (status) {
+        case AT_INDEX:
+            cmglValue = String(smsIndex);
+            break;
+        case ALL:
+            cmglValue = "ALL";
+            break;
+        case REC_READ:
+            cmglValue = "REC READ";
+            break;
+        case REC_UNREAD:
+            cmglValue = "REC UNREAD";
+            break;
+        case STO_SENT:
+            cmglValue = "STO SENT";
+            break;
+        case STO_UNSENT:
+            cmglValue = "STO UNSENT";
+            break;
+    }
+    String bf;
+    modem->sendAT(GF("+CMGF=1"));
+    modem->waitResponse();
+
+    modem->sendAT(GF("+CSDH=1"));
+    modem->waitResponse();
+
+    modem->sendAT(GF("+CPMS=\"MT\""));
+    modem->waitResponse();
+
+    modem->sendAT(GF("+CMGL=\""), cmglValue, GF("\""));
+    modem->waitResponse(10000L, bf);
+
+    uint8_t size = 0;
+    int index = -1;
+    while (true) {
+        index = bf.indexOf("+CMGL", index + 1);
+        if (index == -1) break;
+        int nextIndex = bf.indexOf("+CMGL", index + 1);
+
+        String rawSMS = bf.substring(index, nextIndex != -1 ? nextIndex : bf.length() - 4);
+        rawSMS.trim();
+        buffer[size] = SMS(rawSMS);
+        size++;
+        if (nextIndex == -1)
+            break;
+        else index = nextIndex - 1;
+    }
+    bf.clear();
+    return size;
+}
+
+bool NetworkController::sendUTF16SMS(const String &number, const String &text) {
+    modem->sendAT(GF("+CMGF=1"));
+    modem->waitResponse();
+    modem->sendAT(GF("+CSCS=\"HEX\""));
+    modem->waitResponse();
+    modem->sendAT(GF("+CSMP=49,167,0,8"));
+    modem->waitResponse();
+    modem->sendAT(GF("+CMGS=\""), number, GF("\""));
+    if (modem->waitResponse(GF(">")) != 1) return false;
+
+    uint16_t size = text.length() / 2;
+    String bf[size];
+    SMS::stringToUTF16(text, bf);
+    for (int i = 0; i < size; i++)
+        modem->stream.print(bf[i]);
+    modem->stream.write(static_cast<char>(0x1A));  // Terminate the message
+    modem->stream.flush();
+    return modem->waitResponse(60000L) == 1;
+}
+
+#endif
 
 void NetworkController::connect2GSM(String apn, String pin, int gsmTimeout_seconds) {
     if (gsmConnecting)
