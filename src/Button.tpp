@@ -3,7 +3,7 @@
 
 class Button {
 public:
-    Button(uint8_t buttonPin, uint8_t mode, bool = false);
+    Button(uint8_t buttonPin, uint8_t mode, bool activeLow=false);
 
     typedef void (*ActionEvent)();
 

@@ -90,6 +90,8 @@ public:
 
     void connect2GSM(String apn, String pin, int gsmTimeout_seconds = 30);
 
+    bool connectToNetwork();
+
 #if (defined(ESP8266) || defined(ESP32)) && defined(TINY_GSM_MODEM_SIM800)
     enum Status {
         AT_INDEX,
@@ -189,6 +191,7 @@ void NetworkController::init() {
     String modemInfo = modem->getModemInfo();
     printDBG("Modem Info: ");
     printDBGln(modemInfo.c_str());
+    connectToNetwork();
 #endif
 #ifdef F_WIFI
     WiFi.mode(WIFI_OFF);
@@ -393,10 +396,10 @@ bool NetworkController::deleteSMS(NetworkController::Status status, uint8_t smsI
             cmgdValue = String(smsIndex) + ",0";
             break;
         case ALL:
-            cmgdValue = "0,4";;
+            cmgdValue = "1,4";
             break;
         case REC_READ:
-            cmgdValue = "0,1";
+            cmgdValue = "1,1";
             break;
         default:
             return false;
@@ -506,6 +509,14 @@ void NetworkController::connect2GSM(String apn, String pin, int gsmTimeout_secon
     gsmConnecting = true;
     networkMode = NOT_CONNECTED;
 
+    connectToNetwork();
+}
+
+TinyGsm *NetworkController::getModem() const {
+    return modem;
+}
+
+bool NetworkController::connectToNetwork() {
     if (!modem->isNetworkConnected()) {
         if (gSimPin && modem->getSimStatus() != 3)
             modem->simUnlock(gSimPin.c_str());
@@ -515,18 +526,16 @@ void NetworkController::connect2GSM(String apn, String pin, int gsmTimeout_secon
             printDBGln(" fail");
             networkMode = NOT_CONNECTED;
             gsmConnecting = false;
-            return;
+            return false;
         }
 
         printDBGln(" success");
         if (modem->isNetworkConnected()) {
             printDBGln("Network connected");
+            return true;
         }
-    }
-}
-
-TinyGsm *NetworkController::getModem() const {
-    return modem;
+        return false;
+    } else return true;
 }
 
 #endif

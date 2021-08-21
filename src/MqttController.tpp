@@ -78,8 +78,16 @@ void MQTTController::loop() {
     uint64_t millis = Uptime.getMilliseconds();
 
     if (mqttClient != nullptr) mqttClient->loop();
-    if (queue != nullptr && !queue->isEmpty() && isViralinkConnected())
-        mqttClient->publish(queue->pop().c_str(), queue->pop().c_str());
+    if (queue != nullptr && !queue->isEmpty() && isViralinkConnected()) {
+        String topic = queue->pop();
+        String payload = queue->pop();
+        if (!mqttClient->publish(topic.c_str(), payload.c_str())) {
+            printDBGln("Could Not Publish");
+            printDBGln(topic.c_str());
+            printDBGln(payload.c_str());
+        }
+        // todo handle failed items
+    }
 
     if (sendAttributes && ((millis - lastSendAttributes) > ((uint64_t) (updateInterval * 1000)))) {
         lastSendAttributes = millis;
@@ -122,10 +130,8 @@ uint8_t temprature_sens_read();
 #endif
 
 String MQTTController::get_Connection_info() {
-    StaticJsonDocument<200> data;
+    StaticJsonDocument<400> data;
     data[String("Cpu FreqMHZ")] = ESP.getCpuFreqMHz();
-    data[String("Cpu SDK Version")] = ESP.getSdkVersion();
-    data[String("Flash Chip Speed")] = ESP.getFlashChipSpeed();
     data[String("Viralink SDK Version")] = SDK_VERSION;
 #ifdef ESP32
     data[String("Chip Type")] = "ESP32";
@@ -139,15 +145,11 @@ String MQTTController::get_Connection_info() {
     data[String("Connection Type")] =
             nc->getNetworkMode() == NetworkController::GSM ? "GSM" : "WIFI";
 #ifdef F_GSM
-    if (nc->getNetworkMode() == NetworkController::GSM) {
-        TinyGsm *modem = nc->getModem();
-        data[String("Modem Name")] = modem->getModemName();
-        data[String("Modem Info")] = modem->getModemInfo();
-        data[String("Location")] = modem->getGsmLocation();
-        data[String("IMSI")] = modem->getIMSI();
-        data[String("IMEI")] = modem->getIMEI();
-        data[String("Operator")] = modem->getOperator();
-    }
+    TinyGsm *modem = nc->getModem();
+    data[String("Modem Name")] = modem->getModemName();
+    data[String("Modem Info")] = modem->getModemInfo();
+    data[String("IMEI")] = modem->getIMEI();
+    data[String("Operator")] = modem->getOperator();
 #endif
     char payload[400];
     serializeJson(data, payload, sizeof(payload));
@@ -160,7 +162,7 @@ void MQTTController::sendAttributesFunc() {
     if (!isViralinkConnected())
         return;
 
-    StaticJsonDocument<100> data;
+    StaticJsonDocument<400> data;
     data[String("upTime")] = Uptime.getSeconds();
     data[String("ESP Free Heap")] = ESP.getFreeHeap();
 
@@ -179,7 +181,7 @@ void MQTTController::sendAttributesFunc() {
         data[String("IP")] = nc->getWiFi()->localIP().toString();
     }
 #endif
-    char payload[200];
+    char payload[400];
     serializeJson(data, payload, sizeof(payload));
     addToPublishQueue("v1/devices/me/attributes", payload);
 }
